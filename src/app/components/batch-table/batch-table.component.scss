@@ -1,0 +1,55 @@
+:host ::ng-deep {
+  .row-new {
+    background-color: #e3f2fd !important;
+  }
+
+  // Highlight changed cells
+  .cell-dirty {
+    background-color: #fff3cd !important; // soft yellow
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ffc107;
+    }
+  }
+
+  // New rows
+  .row-new {
+    background-color: #e8f5e9 !important;
+  }
+
+  // Draft (add) row
+  .draft-row {
+    background-color: #e3f2fd !important;
+
+    td {
+      padding: 0.5rem !important;
+    }
+  }
+
+  // Make editable cells look clickable
+  td[pEditableColumn] {
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--p-surface-100);
+    }
+  }
+
+  .totals-row {
+    background-color: var(--p-surface-100);
+    font-weight: 600;
+
+    td {
+      border-top: 2px solid var(--p-surface-300);
+    }
+  }
+}
+
