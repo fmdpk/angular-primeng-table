@@ -31,9 +31,10 @@
     [tableStyle]="{ 'min-width': '60rem' }">
     <!-- Caption -->
     <ng-template pTemplate="caption">
-      <div class="flex align-items-center justify-content-between">
+      <div class="flex items-center justify-between">
         <input pInputText type="text" placeholder="Global search" [ngModel]="globalFilterValue"
-          (ngModelChange)="onGlobalFilter($event, dt)" />
+          (ngModelChange)="onGlobalFilter($event)" />
+        <p-button label="Clear" [outlined]="true" icon="pi pi-filter-slash" (click)="clear(dt)" />
       </div>
     </ng-template>
 

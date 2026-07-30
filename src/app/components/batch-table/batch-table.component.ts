@@ -120,6 +120,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   loadPage(event: TableLazyLoadEvent): void {
+    console.log('loadPage', event);
     if (!this.isBrowser) {
       return;
     }
@@ -166,7 +167,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.executeLoad(event);
   }
 
-  onGlobalFilter(value: string, table: Table): void {
+  onGlobalFilter(value: string): void {
+    console.log('onGlobalFilter', value);
     const next = value ?? '';
     this.globalFilterSubject.next({
       value: next,
@@ -336,6 +338,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   onCustomSort(event: SortEvent): void {
+    console.log(event);
     const newField = event.field ?? undefined;
     const newOrder = event.order ?? 0;
 
@@ -359,6 +362,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   private executeLoad(event: TableLazyLoadEvent): void {
+    console.log('executeLoad', event);
     const first = event.first ?? 0;
     const rows = event.rows ?? this.rows;
 
@@ -391,17 +395,38 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       data = this.applyColumnFilters(data, event.filters);
 
       // sort
-      if (event.sortField) {
-        const field = event.sortField as keyof Product;
-        const order = event.sortOrder === -1 ? -1 : 1;
+      const multiSortMeta = event.multiSortMeta?.length
+        ? event.multiSortMeta
+        : event.sortField
+          ? [{ field: event.sortField, order: event.sortOrder ?? 1 }]
+          : [];
+
+      if (multiSortMeta.length) {
         data = data.sort((a, b) => {
-          const av = a[field] as any;
-          const bv = b[field] as any;
-          if (av == null && bv == null) return 0;
-          if (av == null) return -1 * order;
-          if (bv == null) return 1 * order;
-          if (av < bv) return -1 * order;
-          if (av > bv) return 1 * order;
+          for (const meta of multiSortMeta) {
+            const field = meta.field as keyof Product;
+            const order = meta.order === -1 ? -1 : 1;
+            const av = a[field] as any;
+            const bv = b[field] as any;
+
+            if (av == null && bv == null) continue;
+            if (av == null) return -1 * order;
+            if (bv == null) return 1 * order;
+
+            const comparison =
+              typeof av === 'string' && typeof bv === 'string'
+                ? av.localeCompare(bv)
+                : av < bv
+                  ? -1
+                  : av > bv
+                    ? 1
+                    : 0;
+
+            if (comparison !== 0) {
+              return comparison * order;
+            }
+          }
+
           return 0;
         });
       }
@@ -592,5 +617,10 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         );
       }
     }
+  }
+
+  clear(table: Table) {
+    table.clear();
+    this.globalFilterValue = '';
   }
 }
