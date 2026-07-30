@@ -74,6 +74,11 @@ export class BatchTableComponent implements OnInit {
   >(null);
   private pendingLazyEvent: TableLazyLoadEvent | null = null;
   private pendingGlobalFilter: string | null = null;
+  private pendingSortRestore: {
+    sortField: string | undefined | null;
+    sortOrder: number;
+    multiSortMeta: { field: string; order: number }[] | null;
+  } | null = null;
 
   ngOnInit(): void {
     this.state.initializeData();
@@ -103,6 +108,7 @@ export class BatchTableComponent implements OnInit {
       this.pendingLazyEvent = event;
 
       if (sortChanged) {
+        this.pendingSortRestore = this.captureSortState();
         const col = this.state.columnLabel(String(event.sortField));
         this.confirmBeforeViewChange(
           'Save before sorting?',
@@ -110,6 +116,7 @@ export class BatchTableComponent implements OnInit {
           () => this.applyPendingLazyEvent(),
         );
       } else if (filterChanged) {
+        this.pendingSortRestore = null;
         const col = this.guessFilterColumn(event.filters);
         const detail = col
           ? `Save your work before filtering by “${col}”?`
@@ -304,6 +311,7 @@ export class BatchTableComponent implements OnInit {
     if (!this.pendingLazyEvent) return;
     const event = this.pendingLazyEvent;
     this.pendingLazyEvent = null;
+    this.pendingSortRestore = null;
     this.executeLoad(event);
   }
 
@@ -454,8 +462,9 @@ export class BatchTableComponent implements OnInit {
         this.saveBatch(() => onContinue(true), false);
       },
       reject: () => {
+        this.pendingLazyEvent = null;
         this.loading.set(false);
-        this.loadPage({ first: this.first(), rows: this.rows });
+        this.restoreSortState();
       },
     });
   }
@@ -485,5 +494,60 @@ export class BatchTableComponent implements OnInit {
 
       return event.order! * result;
     });
+  }
+
+  private captureSortState(): {
+    sortField: string | undefined | null;
+    sortOrder: number;
+    multiSortMeta: { field: string; order: number }[] | null;
+  } {
+    return {
+      sortField: this.sortField,
+      sortOrder: this.sortOrder,
+      multiSortMeta: this.appliedMultiSortMeta()
+        ? this.appliedMultiSortMeta()!.map((meta) => ({ ...meta }))
+        : null,
+    };
+  }
+
+  private restoreSortState(): void {
+    const previous = this.pendingSortRestore;
+    this.pendingSortRestore = null;
+
+    if (!previous) {
+      return;
+    }
+
+    this.sortField = previous.sortField ?? undefined;
+    this.sortOrder = previous.sortOrder;
+    this.appliedMultiSortMeta.set(
+      previous.multiSortMeta
+        ? previous.multiSortMeta.map((meta) => ({ ...meta }))
+        : null,
+    );
+    this.appliedSort.set({
+      field: previous.sortField ?? undefined,
+      order: previous.sortOrder,
+    });
+
+    if (this.table) {
+      const restoredMultiSortMeta = previous.multiSortMeta
+        ? previous.multiSortMeta.map((meta) => ({ ...meta }))
+        : null;
+
+      this.table.sortField = previous.sortField ?? null;
+      this.table.sortOrder = previous.sortOrder;
+      this.table.multiSortMeta = restoredMultiSortMeta;
+
+      if (this.table.sortMode === 'multiple') {
+        this.table.tableService.onSort(restoredMultiSortMeta);
+      } else {
+        this.table.tableService.onSort(
+          previous.sortField
+            ? { field: previous.sortField, order: previous.sortOrder }
+            : null,
+        );
+      }
+    }
   }
 }
