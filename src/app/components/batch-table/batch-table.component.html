@@ -83,36 +83,36 @@
           <p-cellEditor>
             <ng-template pTemplate="input">
               <input pInputText type="text" [(ngModel)]="product.code" class="w-full" />
-              </ng-template>
-              <ng-template pTemplate="output">
-                <div class="flex align-items-center justify-content-between gap-1">
-                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'code') }">{{ product.code }}</span>
-                  @if (isCellDirty(product, 'code')) {
+            </ng-template>
+            <ng-template pTemplate="output">
+              <div class="flex align-items-center justify-content-between gap-1">
+                <span [ngClass]="{ 'fix-height': isCellDirty(product, 'code') }">{{ product.code }}</span>
+                @if (isCellDirty(product, 'code')) {
                 <p-button icon="pi pi-undo" [rounded]="true" [text]="true" severity="secondary" size="small"
                   (onClick)="undoCell(product, 'code'); $event.stopPropagation()" />
                 }
-                </div>
-                </ng-template>
-                </p-cellEditor>
-                </td>
+              </div>
+              </ng-template>
+              </p-cellEditor>
+              </td>
 
         <!-- NAME -->
         <td [pEditableColumn]="product" pEditableColumnField="name" [ngClass]="{ 'cell-dirty': isCellDirty(product, 'name') }">
           <p-cellEditor>
             <ng-template pTemplate="input">
               <input pInputText type="text" [(ngModel)]="product.name" class="w-full" />
-              </ng-template>
-              <ng-template pTemplate="output">
-                <div class="flex align-items-center justify-content-between gap-1">
-                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'name') }">{{ product.name }}</span>
-                  @if (isCellDirty(product, 'name')) {
+            </ng-template>
+            <ng-template pTemplate="output">
+              <div class="flex align-items-center justify-content-between gap-1">
+                <span [ngClass]="{ 'fix-height': isCellDirty(product, 'name') }">{{ product.name }}</span>
+                @if (isCellDirty(product, 'name')) {
                 <p-button icon="pi pi-undo" [rounded]="true" [text]="true" severity="secondary" size="small"
                   (onClick)="undoCell(product, 'name'); $event.stopPropagation()" />
                 }
-                </div>
-                </ng-template>
-                </p-cellEditor>
-                </td>
+              </div>
+              </ng-template>
+              </p-cellEditor>
+              </td>
 
         <!-- CATEGORY -->
         <td [pEditableColumn]="product" pEditableColumnField="category"
@@ -120,18 +120,18 @@
           <p-cellEditor>
             <ng-template pTemplate="input">
               <input pInputText type="text" [(ngModel)]="product.category" class="w-full" />
-              </ng-template>
-              <ng-template pTemplate="output">
-                <div class="flex align-items-center justify-content-between gap-1">
-                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'category') }">{{ product.category }}</span>
-                  @if (isCellDirty(product, 'category')) {
+            </ng-template>
+            <ng-template pTemplate="output">
+              <div class="flex align-items-center justify-content-between gap-1">
+                <span [ngClass]="{ 'fix-height': isCellDirty(product, 'category') }">{{ product.category }}</span>
+                @if (isCellDirty(product, 'category')) {
                 <p-button icon="pi pi-undo" [rounded]="true" [text]="true" severity="secondary" size="small"
                   (onClick)="undoCell(product, 'category'); $event.stopPropagation()" />
                 }
-                </div>
-                </ng-template>
-                </p-cellEditor>
-                </td>
+              </div>
+              </ng-template>
+              </p-cellEditor>
+              </td>
 
         <!-- QUANTITY -->
         <td [pEditableColumn]="product" pEditableColumnField="quantity"
@@ -139,18 +139,18 @@
           <p-cellEditor>
             <ng-template pTemplate="input">
               <input pInputText type="text" [(ngModel)]="product.quantity" class="w-full" />
-              </ng-template>
-              <ng-template pTemplate="output">
-                <div class="flex align-items-center justify-content-between gap-1">
-                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'quantity') }">{{ product.quantity }}</span>
-                  @if (isCellDirty(product, 'quantity')) {
+            </ng-template>
+            <ng-template pTemplate="output">
+              <div class="flex align-items-center justify-content-between gap-1">
+                <span [ngClass]="{ 'fix-height': isCellDirty(product, 'quantity') }">{{ product.quantity }}</span>
+                @if (isCellDirty(product, 'quantity')) {
                 <p-button icon="pi pi-undo" [rounded]="true" [text]="true" severity="secondary" size="small"
                   (onClick)="undoCell(product, 'quantity'); $event.stopPropagation()" />
                 }
-                </div>
-                </ng-template>
-                </p-cellEditor>
-                </td>
+              </div>
+              </ng-template>
+              </p-cellEditor>
+              </td>
 
         <!-- PRICE -->
         <td [pEditableColumn]="product" pEditableColumnField="price"
@@ -158,34 +158,34 @@
           <p-cellEditor>
             <ng-template pTemplate="input">
               <input pInputText type="text" [(ngModel)]="product.price" class="w-full" />
-              </ng-template>
-              <ng-template pTemplate="output">
-                <div class="flex align-items-center justify-content-between gap-1">
+            </ng-template>
+            <ng-template pTemplate="output">
+              <div class="flex align-items-center justify-content-between gap-1">
                 <span [ngClass]="{ 'fix-height': isCellDirty(product, 'price') }">{{ product.price | currencyDisplay }}</span>
                 @if (isCellDirty(product, 'price')) {
                 <p-button icon="pi pi-undo" [rounded]="true" [text]="true" severity="secondary" size="small"
                   (onClick)="undoCell(product, 'price'); $event.stopPropagation()" />
                 }
-                </div>
-                </ng-template>
-                </p-cellEditor>
-                </td>
+              </div>
+              </ng-template>
+              </p-cellEditor>
+              </td>
 
         <td class="text-center">
           @if (product._isNew) {
           <div class="flex align-items-center justify-content-center gap-2">
-            <span class="p-tag p-tag-success">NEW</span>
+            <span class="p-tag p-tag-success" [ngClass]="{ 'fix-height': product._isNew }">NEW</span>
             <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [text]="true" size="small"
               (onClick)="deleteNewRow(product)" />
-            </div>
-            } @else if (isDirty(product)) {
-            <!-- optional: undo whole row for existing rows -->
+          </div>
+          } @else if (isDirty(product)) {
+          <!-- optional: undo whole row for existing rows -->
           <p-button icon="pi pi-undo" [rounded]="true" [text]="true" severity="secondary" size="small"
             pTooltip="Undo all changes in this row" (onClick)="undoRow(product)" />
           }
-          </td>
-          </tr>
-          </ng-template>
+        </td>
+        </tr>
+        </ng-template>
 
     <!-- Draft row (inline add) -->
     <!--    <ng-template pTemplate="footer">-->
@@ -232,7 +232,7 @@
         <td></td>
       </tr>
     </ng-template>
-    </p-table>
+  </p-table>
   }
 </div>
 

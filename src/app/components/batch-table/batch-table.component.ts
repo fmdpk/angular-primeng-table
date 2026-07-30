@@ -310,7 +310,19 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       detail: `Saved ${payload.updates.length} update(s) and ${payload.creates.length} new row(s).`,
     });
 
-    this.loadPage({ first: this.first(), rows: this.rows });
+    const multiSortMeta = this.table?.multiSortMeta?.length
+      ? this.table.multiSortMeta.map((meta) => ({ ...meta }))
+      : undefined;
+
+    this.loadPage({
+      first: this.first(),
+      rows: this.rows,
+      sortField: this.table?.sortField ?? this.sortField,
+      sortOrder: this.table?.sortOrder ?? this.sortOrder,
+      filters: this.filters,
+      globalFilter: this.globalFilterValue,
+      multiSortMeta,
+    } as TableLazyLoadEvent);
     done?.();
   }
 
