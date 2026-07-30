@@ -1,15 +1,23 @@
-import {Component, computed, inject, makeStateKey, OnInit, PLATFORM_ID, signal, TransferState} from '@angular/core';
-import {TableEditCompleteEvent, TableLazyLoadEvent, TableModule} from 'primeng/table';
-import {InputTextModule} from 'primeng/inputtext';
-import {InputNumberModule} from 'primeng/inputnumber';
-import {ButtonModule} from 'primeng/button';
-import {ConfirmDialogModule} from 'primeng/confirmdialog';
-import {ConfirmationService, MessageService} from 'primeng/api';
-import {ToastModule} from 'primeng/toast';
-import {FormsModule} from '@angular/forms';
-import {CommonModule, isPlatformBrowser} from '@angular/common';
-import {Product} from '../../models/product';
-import {TooltipModule} from 'primeng/tooltip';
+import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
+import {
+  Table,
+  TableEditCompleteEvent,
+  TableLazyLoadEvent,
+  TableModule,
+} from 'primeng/table';
+import { InputTextModule } from 'primeng/inputtext';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { ButtonModule } from 'primeng/button';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService, MessageService, SortEvent } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { Product } from '../../models/product';
+import { TooltipModule } from 'primeng/tooltip';
+import { BatchTableStateService } from '../../services/batch-table-state.service';
+import { CurrencyDisplayPipe } from '../../pipes/currency-formatter.pipe';
+import { RowHighlightDirective } from '../../directives/row-highlight.directive';
 
 @Component({
   selector: 'app-batch-table',
@@ -23,160 +31,137 @@ import {TooltipModule} from 'primeng/tooltip';
     ButtonModule,
     ConfirmDialogModule,
     ToastModule,
-    TooltipModule
+    TooltipModule,
+    CurrencyDisplayPipe,
+    RowHighlightDirective,
   ],
   providers: [ConfirmationService, MessageService],
   templateUrl: './batch-table.component.html',
-  styleUrl: './batch-table.component.scss'
+  styleUrl: './batch-table.component.scss',
 })
 export class BatchTableComponent implements OnInit {
-  products = signal<Product[]>([]);
-  draftRow = signal<Product | null>(null);         // the temporary new row
-  // ---- current page from "API" ----
-  totalRecords = signal(0);
-  first = signal(0);
-  rows = 5; // page size
-  loading = signal(false);
-  // ---- change tracking (survives pagination) ----
-  /** key = `${id}::${field}` → edited value */
-  pendingFieldValues = signal<Map<string, unknown>>(new Map());
-  pendingNewRows = signal<Product[]>([]);
-  /** Rows that were added and not yet saved */
-  addedCount = computed(() => this.pendingNewRows().length);
-  hasDraftRow = computed(() =>
-    this.pendingNewRows().some(p => p._isNew && !!p._tempId)
-  );
-  dirtyKeys = signal<Set<string>>(new Set());
-  // ---- display: new rows on top of page 1 only (extra rows, not replacing) ----
-  tableValue = computed(() => {
-    const page = this.products(); // P001–P005 on page 1
-    const drafts = this.pendingNewRows().filter(p => p._isNew && !!p._tempId);
+  @ViewChild('dt') table!: Table;
+  readonly state = inject(BatchTableStateService);
+  readonly confirmationService = inject(ConfirmationService);
+  readonly messageService = inject(MessageService);
 
-    if (this.first() === 0 && drafts.length) {
-      return [...drafts, ...page]; // 6 items → all must be visible
-    }
-    return page;
-  });
-  totalQuantity = computed(() =>
-    this.tableValue().reduce((sum, p) => sum + (Number(p.quantity) || 0), 0)
-  );
-  totalPrice = computed(() =>
-    this.tableValue().reduce((sum, p) => sum + (Number(p.price) || 0), 0)
-  );
-  /** Existing rows that have at least one dirty cell (excludes new rows) */
-  editedCount = computed(() => {
-    const ids = new Set(
-      Array.from(this.dirtyKeys())
-        .filter(k => !k.startsWith('temp-'))
-        .map(k => k.split('::')[0])
-    );
-    return ids.size;
-  });
-  /** Total (optional – useful for enabling Save) */
+  readonly products = this.state.products;
+  readonly totalRecords = this.state.totalRecords;
+  readonly first = this.state.first;
+  readonly loading = this.state.loading;
+  readonly pendingFieldValues = this.state.pendingFieldValues;
+  readonly pendingNewRows = this.state.pendingNewRows;
+  readonly dirtyKeys = this.state.dirtyKeys;
+  readonly addedCount = this.state.addedCount;
+  readonly editedCount = this.state.editedCount;
+  readonly totalPendingCount = this.state.totalPendingCount;
+  readonly hasDraftRow = this.state.hasDraftRow;
+  readonly tableValue = this.state.tableValue;
+  readonly totalQuantity = this.state.totalQuantity;
+  readonly totalPrice = this.state.totalPrice;
+  readonly rows = this.state.rows;
+  readonly isBrowser = this.state.isBrowser;
 
-  totalPendingCount = computed(() => this.editedCount() + this.addedCount());
-  // ---- simulated DB ----
-  private allServerData = signal<Product[]>([]);
+  draftRow = signal<Product | null>(null);
+  sortField: string | undefined;
+  sortOrder = 1;
+  filters: Record<string, unknown> = {};
+  globalFilterValue = '';
 
-  platformId = inject(PLATFORM_ID);
-  transferState = inject(TransferState);
+  private appliedSort = signal<SortEvent>({ field: undefined, order: 1 });
+  private appliedMultiSortMeta = signal<
+    { field: string; order: number }[] | null
+  >(null);
+  private pendingLazyEvent: TableLazyLoadEvent | null = null;
+  private pendingGlobalFilter: string | null = null;
 
-  DATA_KEY = makeStateKey<Product[]>('batch-table-all-data');
-  readonly isBrowser = isPlatformBrowser(this.platformId);
-
-
-  constructor(
-    private confirmationService: ConfirmationService,
-    private messageService: MessageService
-  ) {
-
+  ngOnInit(): void {
+    this.state.initializeData();
   }
 
-  ngOnInit() {
-    // Seed simulated DB once (SSR-safe)
-    if (this.transferState.hasKey(this.DATA_KEY)) {
-      this.allServerData.set(this.transferState.get(this.DATA_KEY, []));
-      this.transferState.remove(this.DATA_KEY);
-    } else {
-      const data: Product[] = Array.from({length: 23}, (_, i) => ({
-        id: i + 1,
-        code: `P${String(i + 1).padStart(3, '0')}`,
-        name: `Product ${i + 1}`,
-        category: i % 2 === 0 ? 'Accessories' : 'Fitness',
-        quantity: (i + 1) * 3,
-        price: 20 + i * 5
-      }));
-      this.allServerData.set(data);
-
-      if (!this.isBrowser) {
-        this.transferState.set(this.DATA_KEY, data);
-      }
-    }
-    this.pendingNewRows.set([]);
-    this.pendingFieldValues.set(new Map());
-    this.dirtyKeys.set(new Set());
-    // this.loadPage({first: 0, rows: this.rows});
-  }
-
-  // ---------- Simulated API ----------
   loadPage(event: TableLazyLoadEvent): void {
-    // Avoid running the “API” on the server; client onLazyLoad will load data
     if (!this.isBrowser) {
       return;
     }
 
     const first = event.first ?? 0;
     const rows = event.rows ?? this.rows;
+    const sortChanged = this.hasSortChanged(event);
+    const filterChanged = this.hasFilterChanged(event.filters);
 
-    console.log('loadPage', {first, rows});
+    this.state.first.set(first);
+    this.state.loading.set(true);
 
-    this.first.set(first);
-    this.loading.set(true);
+    const onlyPaging = !sortChanged && !filterChanged;
 
-    window.setTimeout(() => {
-      // Always REPLACE the page – never append
-      const slice = this.allServerData()
-        .slice(first, first + rows)
-        .map(p => this.mergePending({...p}));
+    if (onlyPaging) {
+      this.executeLoad(event);
+      return;
+    }
 
-      this.products.set(slice);          // exactly `rows` server rows
-      this.totalRecords.set(this.allServerData().length); // do NOT add draft count
-      this.loading.set(false);
+    if (this.totalPendingCount() > 0 && (sortChanged || filterChanged)) {
+      this.pendingLazyEvent = event;
 
-      // Debug: should be only current page codes
-      console.log(
-        'page products',
-        this.products().map(p => p.code),
-        'drafts',
-        this.pendingNewRows().map(p => p.code),
-        'tableValue',
-        this.tableValue().map(p => p.code)
+      if (sortChanged) {
+        const col = this.state.columnLabel(String(event.sortField));
+        this.confirmBeforeViewChange(
+          'Save before sorting?',
+          `Save your work before sorting by “${col}”?`,
+          () => this.applyPendingLazyEvent(),
+        );
+      } else if (filterChanged) {
+        const col = this.guessFilterColumn(event.filters);
+        const detail = col
+          ? `Save your work before filtering by “${col}”?`
+          : 'Save your work before applying filters?';
+        this.confirmBeforeViewChange('Save before filtering?', detail, () =>
+          this.applyPendingLazyEvent(),
+        );
+      }
+      return;
+    }
+
+    this.executeLoad(event);
+  }
+
+  onGlobalFilter(value: string, table: Table): void {
+    const next = value ?? '';
+
+    if (this.totalPendingCount() > 0 && next !== this.globalFilterValue) {
+      this.pendingGlobalFilter = next;
+      this.confirmBeforeViewChange(
+        'Save before searching?',
+        'Save your work before running a global search?',
+        () => {
+          this.globalFilterValue = this.pendingGlobalFilter ?? '';
+          this.pendingGlobalFilter = null;
+          // reload page 1 with global filter
+          this.loadPage({
+            first: 0,
+            rows: this.rows,
+            sortField: this.sortField,
+            sortOrder: this.sortOrder,
+            filters: this.filters,
+            globalFilter: this.globalFilterValue,
+          } as TableLazyLoadEvent);
+        },
       );
-    }, 500);
+      return;
+    }
+
+    this.globalFilterValue = next;
+    this.loadPage({
+      first: 0,
+      rows: this.rows,
+      sortField: this.sortField,
+      sortOrder: this.sortOrder,
+      filters: this.filters,
+      globalFilter: this.globalFilterValue,
+    } as TableLazyLoadEvent);
   }
 
   mergePending(serverRow: Product): Product {
-    const row: Product = {
-      ...serverRow,
-      _original: {
-        id: serverRow.id,
-        code: serverRow.code,
-        name: serverRow.name,
-        category: serverRow.category,
-        quantity: serverRow.quantity,
-        price: serverRow.price
-      }
-    };
-
-    const id = String(serverRow.id);
-    this.pendingFieldValues().forEach((value, key) => {
-      if (key.startsWith(`${id}::`)) {
-        const field = key.split('::')[1] as keyof Product;
-        (row as any)[field] = value;
-      }
-    });
-
-    return row;
+    return this.state.mergePending(serverRow);
   }
 
   // ---------- Replace dirty helpers ----------
@@ -187,7 +172,9 @@ export class BatchTableComponent implements OnInit {
   isDirty(product: Product): boolean {
     if (product._isNew) return true;
     const id = this.keyOf(product);
-    return Array.from(this.dirtyKeys()).some(k => k.startsWith(id + '::'));
+    return Array.from(this.dirtyKeys()).some((key) =>
+      key.startsWith(id + '::'),
+    );
   }
 
   // call this whenever a cell finishes editing
@@ -195,70 +182,20 @@ export class BatchTableComponent implements OnInit {
     const product = event.data as Product | undefined;
     const field = event.field as keyof Product | undefined;
     if (!product || !field) return;
-    if (field === '_original' || field === '_isNew' || field === '_tempId') return;
 
-    const key = this.keyOf(product, field as string);
-    const original = product._original?.[field as keyof NonNullable<Product['_original']>];
-    const current = product[field];
-
-    // persist edit outside the page array
-    this.pendingFieldValues.update(map => {
-      const next = new Map(map);
-      if (current !== original) {
-        next.set(key, current);
-      } else {
-        next.delete(key);
-      }
-      return next;
-    });
-
-    this.dirtyKeys.update(set => {
-      const next = new Set(set);
-      if (current !== original) next.add(key);
-      else next.delete(key);
-      return next;
-    });
-
-    // refresh current page reference (totals / UI)
-    this.products.update(list => [...list]);
-    this.pendingNewRows.update(list => [...list]);
+    this.state.updateCellValue(product, field, product[field]);
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
   }
 
-  // ---------- Add row (extra row on page 1, does not drop last row) ----------
   startAddRow(): void {
     if (this.hasDraftRow()) return;
 
-    // show page 1 so the draft is visible under the header
     if (this.first() !== 0) {
-      this.loadPage({first: 0, rows: this.rows});
+      this.loadPage({ first: 0, rows: this.rows });
     }
 
-    const draft: Product = {
-      code: '',
-      name: '',
-      category: '',
-      quantity: 0,
-      price: 0,
-      _isNew: true,
-      _tempId: crypto.randomUUID(),
-      _original: {
-        code: '',
-        name: '',
-        category: '',
-        quantity: 0,
-        price: 0
-      }
-    };
-
-    // DO NOT touch allServerData or products here
-    this.pendingNewRows.update(list => [draft, ...list]);
-
-    console.log({
-      products: this.products().map(p => p.code),      // ['P001',…,'P005']
-      drafts: this.pendingNewRows().map(p => p._tempId),
-      tableValue: this.tableValue().map(p => p.code || 'DRAFT'),
-      length: this.tableValue().length                 // should be 6
-    });
+    this.state.startAddRow();
   }
 
   confirmAddRow(): void {
@@ -269,7 +206,7 @@ export class BatchTableComponent implements OnInit {
       this.messageService.add({
         severity: 'warn',
         summary: 'Validation',
-        detail: 'Code and Name are required'
+        detail: 'Code and Name are required',
       });
       return;
     }
@@ -283,11 +220,11 @@ export class BatchTableComponent implements OnInit {
         name: draft.name,
         category: draft.category,
         quantity: draft.quantity,
-        price: draft.price
-      }
+        price: draft.price,
+      },
     };
 
-    this.products.update(list => [newProduct, ...list]);
+    this.products.update((list) => [newProduct, ...list]);
     this.draftRow.set(null);
   }
 
@@ -296,143 +233,257 @@ export class BatchTableComponent implements OnInit {
   }
 
   // ---------- Batch save → simulate API, then reset tracking ----------
-  saveBatch(): void {
+  saveBatch(done?: () => void, showConfirmMessage: boolean = true): void {
     if (this.totalPendingCount() === 0) return;
 
-    this.confirmationService.confirm({
-      message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
-      header: 'Batch Update',
-      icon: 'pi pi-exclamation-triangle',
-      accept: () => {
-        // 1) apply edits onto simulated DB
-        this.allServerData.update(all =>
-          all.map(row => {
-            const id = String(row.id);
-            const updated = {...row};
-            this.pendingFieldValues().forEach((value, key) => {
-              if (key.startsWith(`${id}::`)) {
-                const field = key.split('::')[1];
-                (updated as any)[field] = value;
-              }
-            });
-            return updated;
-          })
-        );
+    if (showConfirmMessage) {
+      this.confirmationService.confirm({
+        message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
+        header: 'Batch Update',
+        icon: 'pi pi-exclamation-triangle',
+        accept: () => this.saveBatchAction(done),
+      });
+      return;
+    }
 
-        // 2) append new rows to simulated DB
-        const news = this.pendingNewRows().map((p, i) => {
-          const {_isNew, _tempId, _original, ...core} = p;
-          return {
-            ...core,
-            id: this.allServerData().length + i + 1
-          } as Product;
-        });
-        if (news.length) {
-          this.allServerData.update(all => [...news, ...all]);
-        }
-
-        // 3) reset ALL tracking
-        this.pendingFieldValues.set(new Map());
-        this.pendingNewRows.set([]);
-        this.dirtyKeys.set(new Set());
-
-        // 4) reload current page from "API"
-        this.loadPage({first: this.first(), rows: this.rows});
-
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Saved',
-          detail: 'Batch update completed'
-        });
-      }
-    });
+    this.saveBatchAction(done);
   }
 
-  // optional: discard all changes
+  saveBatchAction(done?: () => void): void {
+    const payload = this.state.saveBatch();
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Saved',
+      detail: `Saved ${payload.updates.length} update(s) and ${payload.creates.length} new row(s).`,
+    });
+
+    this.loadPage({ first: this.first(), rows: this.rows });
+    done?.();
+  }
+
   discardAll(): void {
-    this.pendingFieldValues.set(new Map());
-    this.pendingNewRows.set([]);
-    this.dirtyKeys.set(new Set());
-    this.loadPage({first: this.first(), rows: this.rows});
+    this.state.discardAll();
+    this.loadPage({ first: this.first(), rows: this.rows });
   }
 
   undoCell(
     product: Product,
-    field: keyof Omit<Product, '_isNew' | '_original' | '_tempId'>
+    field: keyof Omit<Product, '_isNew' | '_original' | '_tempId'>,
   ): void {
-    if (!product._original) return;
-
-    const originalValue = product._original[field];
-    (product as any)[field] = originalValue;
-
-    const key = this.keyOf(product, field as string);
-
-    this.pendingFieldValues.update(map => {
-      const next = new Map(map);
-      next.delete(key);
-      return next;
-    });
-
-    this.dirtyKeys.update(set => {
-      const next = new Set(set);
-      next.delete(key);
-      return next;
-    });
-
-    this.products.update(list => [...list]);
-    this.pendingNewRows.update(list => [...list]);
+    this.state.undoCell(product, field);
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
   }
 
   undoRow(product: Product): void {
-    if (!product._original) return;
-
-    const fields: Array<keyof Omit<Product, '_isNew' | '_original' | '_tempId'>> =
-      ['code', 'name', 'category', 'quantity', 'price'];
-
-    fields.forEach(field => {
-      (product as any)[field] = product._original![field];
-    });
-
-    const id = this.keyOf(product);
-    this.dirtyKeys.update(set => {
-      const next = new Set(set);
-      [...next].forEach(k => {
-        if (k.startsWith(id + '::')) next.delete(k);
-      });
-      return next;
-    });
-
-    this.products.update(list => [...list]);
+    this.state.undoRow(product);
+    this.products.update((list) => [...list]);
   }
 
   deleteNewRow(product: Product): void {
-    if (!product._isNew || !product._tempId) return;
+    this.state.deleteNewRow(product);
+  }
 
-    this.pendingNewRows.update(list =>
-      list.filter(p => p._tempId !== product._tempId)
-    );
+  onCustomSort(event: SortEvent): void {
+    const newField = event.field ?? undefined;
+    const newOrder = event.order ?? 0;
 
-    const id = `temp-${product._tempId}`;
-    this.dirtyKeys.update(set => {
-      const next = new Set(set);
-      [...next].forEach(k => {
-        if (k.startsWith(id + '::') || k === id) next.delete(k);
+    if (
+      newField === this.appliedSort().field &&
+      newOrder === this.appliedSort().order
+    ) {
+      return;
+    }
+
+    this.applySort(event);
+    this.appliedSort.set({ field: newField, order: newOrder });
+  }
+
+  private applyPendingLazyEvent(): void {
+    if (!this.pendingLazyEvent) return;
+    const event = this.pendingLazyEvent;
+    this.pendingLazyEvent = null;
+    this.executeLoad(event);
+  }
+
+  private executeLoad(event: TableLazyLoadEvent): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? this.rows;
+
+    this.first.set(first);
+    this.sortField = event.sortField as string | undefined;
+    this.sortOrder = event.sortOrder ?? 1;
+    this.filters = (event.filters as any) ?? {};
+
+    this.loading.set(true);
+
+    window.setTimeout(() => {
+      let data = [...this.state.getAllServerData()];
+
+      // global filter (if you store it on the event / component)
+      const global = (event.globalFilter as string) || this.globalFilterValue;
+      if (global?.trim()) {
+        const q = global.trim().toLowerCase();
+        data = data.filter((p) =>
+          [
+            p.code,
+            p.name,
+            p.category,
+            String(p.quantity),
+            String(p.price),
+          ].some((v) => v?.toLowerCase().includes(q)),
+        );
+      }
+
+      // column filters (simple contains / equals example)
+      data = this.applyColumnFilters(data, event.filters);
+
+      // sort
+      if (event.sortField) {
+        const field = event.sortField as keyof Product;
+        const order = event.sortOrder === -1 ? -1 : 1;
+        data = data.sort((a, b) => {
+          const av = a[field] as any;
+          const bv = b[field] as any;
+          if (av == null && bv == null) return 0;
+          if (av == null) return -1 * order;
+          if (bv == null) return 1 * order;
+          if (av < bv) return -1 * order;
+          if (av > bv) return 1 * order;
+          return 0;
+        });
+      }
+
+      const slice = data
+        .slice(first, first + rows)
+        .map((p) => this.mergePending({ ...p }));
+
+      if (event.multiSortMeta?.length) {
+        this.appliedMultiSortMeta.set(
+          event.multiSortMeta.map((m) => ({
+            field: m.field!,
+            order: m.order!,
+          })),
+        );
+      } else if (event.sortField) {
+        this.appliedMultiSortMeta.set([
+          { field: event.sortField as string, order: event.sortOrder ?? 1 },
+        ]);
+      } else {
+        this.appliedMultiSortMeta.set(null);
+      }
+
+      this.state.setPageData(slice, data.length, first);
+    }, 250);
+  }
+
+  private hasFilterChanged(filters: any): boolean {
+    if (!filters) return false;
+    return JSON.stringify(filters) !== JSON.stringify(this.filters);
+  }
+
+  private hasSortChanged(event: TableLazyLoadEvent): boolean {
+    const next = event.multiSortMeta?.length
+      ? event.multiSortMeta.map((m) => `${m.field}:${m.order}`).join('|')
+      : event.sortField
+        ? `${event.sortField}:${event.sortOrder ?? 1}`
+        : '';
+
+    const prev = this.appliedMultiSortMeta();
+    const prevKey = prev?.length
+      ? prev.map((m) => `${m.field}:${m.order}`).join('|')
+      : '';
+
+    return next !== prevKey;
+  }
+
+  private guessFilterColumn(filters: any): string | null {
+    if (!filters) return null;
+    for (const field of Object.keys(filters)) {
+      if (field === 'global') continue;
+      const meta = filters[field];
+      const active = Array.isArray(meta)
+        ? meta.some((m: any) => m?.value != null && m.value !== '')
+        : meta?.value != null && meta.value !== '';
+      if (active) return this.state.columnLabel(field);
+    }
+    return null;
+  }
+
+  private applyColumnFilters(data: Product[], filters: any): Product[] {
+    if (!filters) return data;
+    let result = data;
+
+    Object.keys(filters).forEach((field) => {
+      if (field === 'global') return;
+      const meta = filters[field];
+      const constraints = Array.isArray(meta) ? meta : [meta];
+
+      constraints.forEach((c: any) => {
+        if (c?.value == null || c.value === '') return;
+        const val = String(c.value).toLowerCase();
+        result = result.filter((row) => {
+          const cell = String((row as any)[field] ?? '').toLowerCase();
+          // simplify: contains
+          return cell.includes(val);
+        });
       });
-      return next;
     });
 
-    this.pendingFieldValues.update(map => {
-      const next = new Map(map);
-      [...next.keys()].forEach(k => {
-        if (k.startsWith(id + '::')) next.delete(k);
-      });
-      return next;
+    return result;
+  }
+
+  /** Shared confirm: Save & continue | Discard & continue | Cancel */
+  private confirmBeforeViewChange(
+    header: string,
+    detail: string,
+    onContinue: (saved: boolean) => void,
+  ): void {
+    this.confirmationService.confirm({
+      header,
+      message: `${this.state.pendingMessage()} ${detail}`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Save & continue',
+      rejectLabel: 'Discard & continue',
+      closable: false,
+      closeOnEscape: false,
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-danger p-button-outlined',
+      accept: () => {
+        this.saveBatch(() => onContinue(true), false);
+      },
+      reject: () => {
+        this.loading.set(false);
+        this.loadPage({ first: this.first(), rows: this.rows });
+      },
     });
   }
 
   // helper to build a unique key
   private keyOf(product: Product, field?: string): string {
-    const id = product.id != null ? String(product.id) : `temp-${product._tempId}`;
+    const id =
+      product.id != null ? String(product.id) : `temp-${product._tempId}`;
     return field ? `${id}::${field}` : id;
+  }
+
+  private applySort(event: SortEvent) {
+    // Classic PrimeNG custom-sort implementation
+    event.data!.sort((data1: any, data2: any) => {
+      const value1 = data1[event.field!];
+      const value2 = data2[event.field!];
+      let result = 0;
+
+      if (value1 == null && value2 != null) result = -1;
+      else if (value1 != null && value2 == null) result = 1;
+      else if (value1 == null && value2 == null) result = 0;
+      else if (typeof value1 === 'string' && typeof value2 === 'string') {
+        result = value1.localeCompare(value2);
+      } else {
+        result = value1 < value2 ? -1 : value1 > value2 ? 1 : 0;
+      }
+
+      return event.order! * result;
+    });
   }
 }

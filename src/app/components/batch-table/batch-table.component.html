@@ -26,6 +26,7 @@
 
   @if (isBrowser) {
     <p-table
+      #dt
       [value]="tableValue()"
       [lazy]="true"
       [paginator]="true"
@@ -33,26 +34,62 @@
       [totalRecords]="totalRecords()"
       [first]="first()"
       [loading]="loading()"
+      (sortFunction)="onCustomSort($event)"
+      [customSort]="true"
       dataKey="id"
+      [sortMode]="'multiple'"
       (onLazyLoad)="loadPage($event)"
       (onEditComplete)="onCellEditComplete($event)"
       [tableStyle]="{ 'min-width': '60rem' }"
     >
+<!-- Caption -->
+<ng-template pTemplate="caption">
+  <div class="flex align-items-center justify-content-between">
+    <input pInputText type="text" placeholder="Global search" [ngModel]="globalFilterValue"
+      (ngModelChange)="onGlobalFilter($event, dt)" />
+  </div>
+</ng-template>
+
       <!-- Header -->
       <ng-template pTemplate="header">
         <tr>
-          <th>Code</th>
-          <th>Name</th>
-          <th>Category</th>
-          <th>Quantity</th>
-          <th>Price</th>
+          <th pSortableColumn="code">
+            Code
+            <p-sortIcon field="code" />
+            <p-columnFilter type="text" field="code" display="menu" [matchMode]="'contains'" [showOperator]="false"
+              [showAddButton]="false" [showMatchModes]="false" />
+          </th>
+          <th pSortableColumn="name">
+            Name
+            <p-sortIcon field="name" />
+            <p-columnFilter type="text" field="name" display="menu" [matchMode]="'contains'" [showOperator]="false"
+              [showAddButton]="false" [showMatchModes]="false" />
+          </th>
+          <th pSortableColumn="category">
+            Category
+            <p-sortIcon field="category" />
+            <p-columnFilter type="text" field="category" display="menu" [matchMode]="'contains'" [showOperator]="false"
+              [showAddButton]="false" [showMatchModes]="false" />
+          </th>
+          <th pSortableColumn="quantity">
+            Quantity
+            <p-sortIcon field="quantity" />
+            <p-columnFilter type="text" field="quantity" [matchMode]="'contains'" [showOperator]="false" [showAddButton]="false"
+              [showMatchModes]="false" display="menu" />
+          </th>
+          <th pSortableColumn="price">
+            Price
+            <p-sortIcon field="price" />
+            <p-columnFilter type="text" field="price" [matchMode]="'contains'" [showOperator]="false" [showAddButton]="false"
+              [showMatchModes]="false" display="menu" />
+          </th>
           <th style="width: 8rem"></th>
         </tr>
       </ng-template>
 
       <!-- Body – existing + new rows -->
       <ng-template pTemplate="body" let-product let-ri="rowIndex">
-        <tr [class.row-new]="product._isNew">
+        <tr [class.row-new]="product._isNew" [appRowHighlight]="isDirty(product)">
           <!-- CODE -->
           <td
             [pEditableColumn]="product"
@@ -65,7 +102,7 @@
               </ng-template>
               <ng-template pTemplate="output">
                 <div class="flex align-items-center justify-content-between gap-1">
-                  <span>{{ product.code }}</span>
+                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'code') }">{{ product.code }}</span>
                   @if (isCellDirty(product, 'code')) {
                     <p-button
                       icon="pi pi-undo"
@@ -93,7 +130,7 @@
               </ng-template>
               <ng-template pTemplate="output">
                 <div class="flex align-items-center justify-content-between gap-1">
-                  <span>{{ product.name }}</span>
+                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'name') }">{{ product.name }}</span>
                   @if (isCellDirty(product, 'name')) {
                     <p-button
                       icon="pi pi-undo"
@@ -121,7 +158,7 @@
               </ng-template>
               <ng-template pTemplate="output">
                 <div class="flex align-items-center justify-content-between gap-1">
-                  <span>{{ product.category }}</span>
+                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'category') }">{{ product.category }}</span>
                   @if (isCellDirty(product, 'category')) {
                     <p-button
                       icon="pi pi-undo"
@@ -149,7 +186,7 @@
               </ng-template>
               <ng-template pTemplate="output">
                 <div class="flex align-items-center justify-content-between gap-1">
-                  <span>{{ product.quantity }}</span>
+                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'quantity') }">{{ product.quantity }}</span>
                   @if (isCellDirty(product, 'quantity')) {
                     <p-button
                       icon="pi pi-undo"
@@ -177,7 +214,7 @@
               </ng-template>
               <ng-template pTemplate="output">
                 <div class="flex align-items-center justify-content-between gap-1">
-                  <span>{{ product.price }}</span>
+                  <span [ngClass]="{ 'fix-height': isCellDirty(product, 'price') }">{{ product.price | currencyDisplay }}</span>
                   @if (isCellDirty(product, 'price')) {
                     <p-button
                       icon="pi pi-undo"
