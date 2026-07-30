@@ -1,4 +1,11 @@
-import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnDestroy,
+  OnInit,
+  signal,
+  ViewChild,
+} from '@angular/core';
 import {
   Table,
   TableEditCompleteEvent,
@@ -18,6 +25,12 @@ import { TooltipModule } from 'primeng/tooltip';
 import { BatchTableStateService } from '../../services/batch-table-state.service';
 import { CurrencyDisplayPipe } from '../../pipes/currency-formatter.pipe';
 import { RowHighlightDirective } from '../../directives/row-highlight.directive';
+import {
+  debounceTime,
+  distinctUntilChanged,
+  Subject,
+  Subscription,
+} from 'rxjs';
 
 @Component({
   selector: 'app-batch-table',
@@ -39,7 +52,7 @@ import { RowHighlightDirective } from '../../directives/row-highlight.directive'
   templateUrl: './batch-table.component.html',
   styleUrl: './batch-table.component.scss',
 })
-export class BatchTableComponent implements OnInit {
+export class BatchTableComponent implements OnInit, OnDestroy {
   @ViewChild('dt') table!: Table;
   readonly state = inject(BatchTableStateService);
   readonly confirmationService = inject(ConfirmationService);
@@ -74,6 +87,11 @@ export class BatchTableComponent implements OnInit {
   >(null);
   private pendingLazyEvent: TableLazyLoadEvent | null = null;
   private pendingGlobalFilter: string | null = null;
+  private readonly globalFilterSubject = new Subject<{
+    value: string;
+    previousValue: string;
+  }>();
+  private globalFilterSubscription?: Subscription;
   private pendingSortRestore: {
     sortField: string | undefined | null;
     sortOrder: number;
@@ -82,6 +100,23 @@ export class BatchTableComponent implements OnInit {
 
   ngOnInit(): void {
     this.state.initializeData();
+
+    this.globalFilterSubscription = this.globalFilterSubject
+      .pipe(
+        debounceTime(600),
+        distinctUntilChanged(
+          (previous, current) =>
+            previous.value === current.value &&
+            previous.previousValue === current.previousValue,
+        ),
+      )
+      .subscribe(({ value, previousValue }) => {
+        this.handleGlobalFilterChange(value, previousValue);
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.globalFilterSubscription?.unsubscribe();
   }
 
   loadPage(event: TableLazyLoadEvent): void {
@@ -133,8 +168,17 @@ export class BatchTableComponent implements OnInit {
 
   onGlobalFilter(value: string, table: Table): void {
     const next = value ?? '';
+    this.globalFilterSubject.next({
+      value: next,
+      previousValue: this.globalFilterValue,
+    });
+    this.globalFilterValue = next;
+  }
 
-    if (this.totalPendingCount() > 0 && next !== this.globalFilterValue) {
+  private handleGlobalFilterChange(value: string, previousValue: string): void {
+    const next = value ?? '';
+
+    if (this.totalPendingCount() > 0 && next !== previousValue) {
       this.pendingGlobalFilter = next;
       this.confirmBeforeViewChange(
         'Save before searching?',
@@ -142,7 +186,6 @@ export class BatchTableComponent implements OnInit {
         () => {
           this.globalFilterValue = this.pendingGlobalFilter ?? '';
           this.pendingGlobalFilter = null;
-          // reload page 1 with global filter
           this.loadPage({
             first: 0,
             rows: this.rows,
