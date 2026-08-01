@@ -130,66 +130,68 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const first = event.first ?? 0;
-    const rows = event.rows ?? this.rows;
-    const sortChanged = this.hasSortChanged(event);
-    const filterChanged = this.hasFilterChanged(event.filters);
-    this.pendingPageRestore = this.capturePageState();
+    setTimeout(() => {
+      const first = event.first ?? 0;
+      const rows = event.rows ?? this.rows;
+      const sortChanged = this.hasSortChanged(event);
+      const filterChanged = this.hasFilterChanged(event.filters);
+      this.pendingPageRestore = this.capturePageState();
 
-    this.state.first.set(first);
-    this.state.loading.set(true);
+      this.state.first.set(first);
+      this.state.loading.set(true);
 
-    const onlyPaging = !sortChanged && !filterChanged;
+      const onlyPaging = !sortChanged && !filterChanged;
 
-    if (
-      this.totalPendingCount() > 0 &&
-      (sortChanged || filterChanged || onlyPaging)
-    ) {
-      this.pendingLazyEvent = event;
+      if (
+        this.totalPendingCount() > 0 &&
+        (sortChanged || filterChanged || onlyPaging)
+      ) {
+        this.pendingLazyEvent = event;
 
-      console.log(event);
-
-      if (sortChanged) {
-        this.pendingSortRestore = this.captureSortState();
-        // Prefer multiSortMeta (sortMode="multiple"), fall back to single sortField
-        const sortFields = event.multiSortMeta?.length
-          ? event.multiSortMeta.map((m) => m.field!).filter(Boolean)
-          : event.sortField
-            ? [String(event.sortField)]
-            : [];
-
-        const col = sortFields.length
-          ? sortFields.map((f) => this.state.columnLabel(f)).join(', ')
-          : 'column';
-
-        this.confirmBeforeViewChange(
-          'Save before sorting?',
-          `Save your work before sorting by “${col}”?`,
-          () => this.applyPendingLazyEvent(),
-        );
-      } else if (filterChanged) {
-        this.pendingSortRestore = null;
-        const col = this.guessFilterColumn(event.filters);
-        const detail = col
-          ? `Save your work before filtering by “${col}”?`
-          : 'Save your work before applying filters?';
-        this.confirmBeforeViewChange('Save before filtering?', detail, () =>
-          this.applyPendingLazyEvent(),
-        );
-      } else if (onlyPaging) {
         console.log(event);
-        const detail =
-          event.first !== undefined && event.rows
-            ? `Save your work before go to page “${event.first / event.rows + 1}”?`
-            : 'Save your work before pagination?';
-        this.confirmBeforeViewChange('Save before paginating?', detail, () =>
-          this.executeLoad(event),
-        );
-      }
-      return;
-    }
 
-    this.executeLoad(event);
+        if (sortChanged) {
+          this.pendingSortRestore = this.captureSortState();
+          // Prefer multiSortMeta (sortMode="multiple"), fall back to single sortField
+          const sortFields = event.multiSortMeta?.length
+            ? event.multiSortMeta.map((m) => m.field!).filter(Boolean)
+            : event.sortField
+              ? [String(event.sortField)]
+              : [];
+
+          const col = sortFields.length
+            ? sortFields.map((f) => this.state.columnLabel(f)).join(', ')
+            : 'column';
+
+          this.confirmBeforeViewChange(
+            'Save before sorting?',
+            `Save your work before sorting by “${col}”?`,
+            () => this.applyPendingLazyEvent(),
+          );
+        } else if (filterChanged) {
+          this.pendingSortRestore = null;
+          const col = this.guessFilterColumn(event.filters);
+          const detail = col
+            ? `Save your work before filtering by “${col}”?`
+            : 'Save your work before applying filters?';
+          this.confirmBeforeViewChange('Save before filtering?', detail, () =>
+            this.applyPendingLazyEvent(),
+          );
+        } else if (onlyPaging) {
+          console.log(event);
+          const detail =
+            event.first !== undefined && event.rows
+              ? `Save your work before go to page “${event.first / event.rows + 1}”?`
+              : 'Save your work before pagination?';
+          this.confirmBeforeViewChange('Save before paginating?', detail, () =>
+            this.executeLoad(event),
+          );
+        }
+        return;
+      }
+
+      this.executeLoad(event);
+    }, 0);
   }
 
   onGlobalFilter(value: string): void {

@@ -81,7 +81,7 @@
       <!-- Header -->
       <ng-template pTemplate="header">
         <tr>
-          <th pSortableColumn="code">
+          <th pSortableColumn="code" class="w-1/5">
             Code
             <p-sortIcon field="code" />
             <p-columnFilter
@@ -94,7 +94,7 @@
               [showMatchModes]="false"
             />
           </th>
-          <th pSortableColumn="name">
+          <th pSortableColumn="name" class="w-1/5">
             Name
             <p-sortIcon field="name" />
             <p-columnFilter
@@ -107,7 +107,7 @@
               [showMatchModes]="false"
             />
           </th>
-          <th pSortableColumn="category">
+          <th pSortableColumn="category" class="w-1/5">
             Category
             <p-sortIcon field="category" />
             <p-columnFilter
@@ -120,7 +120,7 @@
               [showMatchModes]="false"
             />
           </th>
-          <th pSortableColumn="quantity">
+          <th pSortableColumn="quantity" class="w-1/5">
             Quantity
             <p-sortIcon field="quantity" />
             <p-columnFilter
@@ -133,7 +133,7 @@
               display="menu"
             />
           </th>
-          <th pSortableColumn="price">
+          <th pSortableColumn="price" class="w-1/5">
             Price
             <p-sortIcon field="price" />
             <p-columnFilter
@@ -160,6 +160,7 @@
           <td
             [pEditableColumn]="product"
             pEditableColumnField="code"
+            class="w-1/5"
             [ngClass]="{ 'cell-dirty': isCellDirty(product, 'code') }"
           >
             <p-cellEditor>
@@ -196,6 +197,7 @@
             [pEditableColumn]="product"
             pEditableColumnField="name"
             [ngClass]="{ 'cell-dirty': isCellDirty(product, 'name') }"
+            class="w-1/5"
           >
             <p-cellEditor>
               <ng-template pTemplate="input">
@@ -231,6 +233,7 @@
             [pEditableColumn]="product"
             pEditableColumnField="category"
             [ngClass]="{ 'cell-dirty': isCellDirty(product, 'category') }"
+            class="w-1/5"
           >
             <p-cellEditor>
               <ng-template pTemplate="input">
@@ -268,6 +271,7 @@
             [pEditableColumn]="product"
             pEditableColumnField="quantity"
             [ngClass]="{ 'cell-dirty': isCellDirty(product, 'quantity') }"
+            class="w-1/5"
           >
             <p-cellEditor>
               <ng-template pTemplate="input">
@@ -305,6 +309,7 @@
             [pEditableColumn]="product"
             pEditableColumnField="price"
             [ngClass]="{ 'cell-dirty': isCellDirty(product, 'price') }"
+            class="w-1/5"
           >
             <p-cellEditor>
               <ng-template pTemplate="input">

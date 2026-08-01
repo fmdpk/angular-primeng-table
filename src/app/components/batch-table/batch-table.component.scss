@@ -9,10 +9,10 @@
     position: relative;
 
     &::after {
-      content: '';
+      content: "";
       position: absolute;
-      top: 2px;
-      right: 2px;
+      top: 4px;
+      right: 4px;
       width: 6px;
       height: 6px;
       border-radius: 50%;
@@ -50,6 +50,10 @@
     td {
       border-top: 2px solid var(--p-surface-300);
     }
+  }
+
+  .p-cell-editing {
+    padding: 0.125rem !important;
   }
 }
 
