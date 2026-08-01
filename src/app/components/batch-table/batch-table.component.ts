@@ -5,6 +5,7 @@ import {
   OnInit,
   signal,
   ViewChild,
+  WritableSignal,
 } from '@angular/core';
 import {
   Table,
@@ -72,7 +73,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   readonly tableValue = this.state.tableValue;
   readonly totalQuantity = this.state.totalQuantity;
   readonly totalPrice = this.state.totalPrice;
-  readonly rows = this.state.rows;
+  rows = this.state.rows;
   readonly isBrowser = this.state.isBrowser;
 
   draftRow = signal<Product | null>(null);
@@ -96,6 +97,10 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     sortField: string | undefined | null;
     sortOrder: number;
     multiSortMeta: { field: string; order: number }[] | null;
+  } | null = null;
+  private pendingPageRestore: {
+    first: number;
+    rows: number;
   } | null = null;
 
   ngOnInit(): void {
@@ -129,23 +134,34 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     const rows = event.rows ?? this.rows;
     const sortChanged = this.hasSortChanged(event);
     const filterChanged = this.hasFilterChanged(event.filters);
+    this.pendingPageRestore = this.capturePageState();
 
     this.state.first.set(first);
     this.state.loading.set(true);
 
     const onlyPaging = !sortChanged && !filterChanged;
 
-    if (onlyPaging) {
-      this.executeLoad(event);
-      return;
-    }
-
-    if (this.totalPendingCount() > 0 && (sortChanged || filterChanged)) {
+    if (
+      this.totalPendingCount() > 0 &&
+      (sortChanged || filterChanged || onlyPaging)
+    ) {
       this.pendingLazyEvent = event;
+
+      console.log(event);
 
       if (sortChanged) {
         this.pendingSortRestore = this.captureSortState();
-        const col = this.state.columnLabel(String(event.sortField));
+        // Prefer multiSortMeta (sortMode="multiple"), fall back to single sortField
+        const sortFields = event.multiSortMeta?.length
+          ? event.multiSortMeta.map((m) => m.field!).filter(Boolean)
+          : event.sortField
+            ? [String(event.sortField)]
+            : [];
+
+        const col = sortFields.length
+          ? sortFields.map((f) => this.state.columnLabel(f)).join(', ')
+          : 'column';
+
         this.confirmBeforeViewChange(
           'Save before sorting?',
           `Save your work before sorting by “${col}”?`,
@@ -159,6 +175,15 @@ export class BatchTableComponent implements OnInit, OnDestroy {
           : 'Save your work before applying filters?';
         this.confirmBeforeViewChange('Save before filtering?', detail, () =>
           this.applyPendingLazyEvent(),
+        );
+      } else if (onlyPaging) {
+        console.log(event);
+        const detail =
+          event.first !== undefined && event.rows
+            ? `Save your work before go to page “${event.first / event.rows + 1}”?`
+            : 'Save your work before pagination?';
+        this.confirmBeforeViewChange('Save before paginating?', detail, () =>
+          this.executeLoad(event),
         );
       }
       return;
@@ -188,6 +213,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         () => {
           this.globalFilterValue = this.pendingGlobalFilter ?? '';
           this.pendingGlobalFilter = null;
+          this.resetRows();
           this.loadPage({
             first: 0,
             rows: this.rows,
@@ -210,6 +236,10 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       filters: this.filters,
       globalFilter: this.globalFilterValue,
     } as TableLazyLoadEvent);
+  }
+
+  resetRows() {
+    this.rows = 5;
   }
 
   mergePending(serverRow: Product): Product {
@@ -246,7 +276,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     if (this.first() !== 0) {
       this.loadPage({ first: 0, rows: this.rows });
     }
-
+    this.rows = this.rows + 1;
     this.state.startAddRow();
   }
 
@@ -314,6 +344,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       ? this.table.multiSortMeta.map((meta) => ({ ...meta }))
       : undefined;
 
+    this.pendingPageRestore = null;
+    this.resetRows();
+
     this.loadPage({
       first: this.first(),
       rows: this.rows,
@@ -328,6 +361,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   discardAll(): void {
     this.state.discardAll();
+    this.resetRows();
     this.loadPage({ first: this.first(), rows: this.rows });
   }
 
@@ -342,6 +376,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   undoRow(product: Product): void {
     this.state.undoRow(product);
+    // this.rows = this.rows - 1;
     this.products.update((list) => [...list]);
   }
 
@@ -545,6 +580,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         this.pendingLazyEvent = null;
         this.loading.set(false);
         this.restoreSortState();
+        this.restorePageState();
       },
     });
   }
@@ -590,6 +626,13 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     };
   }
 
+  capturePageState() {
+    return {
+      first: this.first(),
+      rows: this.rows,
+    };
+  }
+
   private restoreSortState(): void {
     const previous = this.pendingSortRestore;
     this.pendingSortRestore = null;
@@ -629,6 +672,18 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         );
       }
     }
+  }
+
+  restorePageState() {
+    const previous = this.pendingPageRestore;
+    this.pendingPageRestore = null;
+    if (!previous) {
+      return;
+    }
+    this.first.set(previous.first);
+    this.rows = previous.rows;
+    this.table.rows = previous.rows;
+    this.table.first = previous.first;
   }
 
   clear(table: Table) {

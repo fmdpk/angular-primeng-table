@@ -17,7 +17,7 @@ export class BatchTableStateService {
   private readonly dataKey = makeStateKey<Product[]>('batch-table-all-data');
 
   readonly isBrowser = isPlatformBrowser(this.platformId);
-  readonly rows = 5;
+  rows = 5;
 
   readonly products = signal<Product[]>([]);
   readonly pendingFieldValues = signal<Map<string, unknown>>(new Map());
