@@ -20,10 +20,10 @@
     }
   }
 
-  // New rows
-  .row-new {
-    background-color: #e8f5e9 !important;
-  }
+  // // New rows
+  // .row-new {
+  //   background-color: #e8f5e9 !important;
+  // }
 
   // Draft (add) row
   .draft-row {
@@ -53,7 +53,12 @@
   }
 
   .p-cell-editing {
-    padding: 0.125rem !important;
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
+  }
+
+  .p-datatable table {
+    table-layout: fixed;
   }
 }
 

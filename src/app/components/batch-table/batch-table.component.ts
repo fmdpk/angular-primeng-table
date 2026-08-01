@@ -32,6 +32,7 @@ import {
   Subject,
   Subscription,
 } from 'rxjs';
+import { PopoverModule } from 'primeng/popover';
 
 @Component({
   selector: 'app-batch-table',
@@ -48,6 +49,7 @@ import {
     TooltipModule,
     CurrencyDisplayPipe,
     RowHighlightDirective,
+    PopoverModule,
   ],
   providers: [ConfirmationService, MessageService],
   templateUrl: './batch-table.component.html',
