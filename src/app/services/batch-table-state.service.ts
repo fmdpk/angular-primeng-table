@@ -340,12 +340,10 @@ export class BatchTableStateService {
     this.newRowTouched.update((set) => {
       const next = new Set(set);
       [...next].forEach((k) => {
-        if (k.startsWith(`${id}::`)) next.delete(k);
+        if (k.startsWith(`${product._tempId}::`)) next.delete(k);
       });
       return next;
     });
-
-    console.log(this.newRowTouched());
   }
 
   pendingMessage(): string {
@@ -491,6 +489,6 @@ export class BatchTableStateService {
   }
 
   resetNewRowTouched() {
-    this.newRowTouched.set(new Set());
+    // this.newRowTouched.set(new Set());
   }
 }
