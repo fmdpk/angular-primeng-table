@@ -74,8 +74,10 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   readonly totalPrice = this.state.totalPrice;
   readonly rows = this.state.rows;
   readonly isBrowser = this.state.isBrowser;
+  readonly newRowTouched = this.state.newRowTouched;
 
   draftRow = signal<Product | null>(null);
+
   sortField: string | undefined;
   sortOrder = 1;
   filters: Record<string, unknown> = {};
@@ -132,6 +134,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
     this.state.first.set(first);
     this.state.loading.set(true);
+
+    console.log(sortChanged);
+    console.log(filterChanged);
 
     const onlyPaging = !sortChanged && !filterChanged;
 
@@ -241,11 +246,11 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   startAddRow(): void {
-    if (this.hasDraftRow()) return;
+    // if (this.hasDraftRow()) return;
 
-    if (this.first() !== 0) {
-      this.loadPage({ first: 0, rows: this.rows });
-    }
+    // if (this.first() !== 0) {
+    //   this.loadPage({ first: 0, rows: this.rows });
+    // }
 
     this.state.startAddRow();
   }
@@ -288,6 +293,24 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   saveBatch(done?: () => void, showConfirmMessage: boolean = true): void {
     if (this.totalPendingCount() === 0) return;
 
+    if (this.state.hasInvalidNewRows()) {
+      // reveal errors on all invalid new fields
+      this.pendingNewRows().forEach((p) => {
+        if (this.state.isCodeInvalid(p))
+          this.state.markNewRowTouched(p, 'code');
+        if (this.state.isQuantityInvalid(p))
+          this.state.markNewRowTouched(p, 'quantity');
+      });
+
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Validation',
+        detail:
+          'Fix invalid new rows (Code must start with “P”, Quantity ≥ 5) before saving.',
+      });
+      return;
+    }
+
     if (showConfirmMessage) {
       this.confirmationService.confirm({
         message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
@@ -299,6 +322,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }
 
     this.saveBatchAction(done);
+    this.state.resetNewRowTouched();
   }
 
   saveBatchAction(done?: () => void): void {

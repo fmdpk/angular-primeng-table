@@ -26,6 +26,7 @@ export class BatchTableStateService {
   readonly totalRecords = signal(0);
   readonly first = signal(0);
   readonly loading = signal(false);
+  readonly newRowTouched = signal<Set<string>>(new Set());
 
   readonly addedCount = computed(() => this.pendingNewRows().length);
   readonly editedCount = computed(() => {
@@ -46,13 +47,13 @@ export class BatchTableStateService {
 
   readonly tableValue = computed(() => {
     const page = this.products();
-    const drafts = this.pendingNewRows().filter(
-      (row) => row._isNew && !!row._tempId,
-    );
+    // const drafts = this.pendingNewRows().filter(
+    //   (row) => row._isNew && !!row._tempId,
+    // );
 
-    if (this.first() === 0 && drafts.length) {
-      return [...drafts, ...page];
-    }
+    // if (this.first() === 0 && drafts.length) {
+    //   return [...drafts, ...page];
+    // }
 
     return page;
   });
@@ -163,24 +164,24 @@ export class BatchTableStateService {
   }
 
   startAddRow(): Product {
-    if (this.hasDraftRow()) {
-      return this.pendingNewRows()[0];
-    }
+    // if (this.hasDraftRow()) {
+    //   return this.pendingNewRows()[0];
+    // }
 
     const draft: Product = {
       code: '',
       name: '',
       category: '',
-      quantity: 0,
-      price: 0,
+      quantity: 1,
+      price: 1,
       _isNew: true,
       _tempId: crypto.randomUUID(),
       _original: {
         code: '',
         name: '',
         category: '',
-        quantity: 0,
-        price: 0,
+        quantity: 1,
+        price: 1,
       },
     };
 
@@ -335,6 +336,16 @@ export class BatchTableStateService {
       });
       return next;
     });
+
+    this.newRowTouched.update((set) => {
+      const next = new Set(set);
+      [...next].forEach((k) => {
+        if (k.startsWith(`${id}::`)) next.delete(k);
+      });
+      return next;
+    });
+
+    console.log(this.newRowTouched());
   }
 
   pendingMessage(): string {
@@ -394,5 +405,92 @@ export class BatchTableStateService {
     const id =
       product.id != null ? String(product.id) : `temp-${product._tempId}`;
     return field ? `${id}::${field}` : id;
+  }
+
+  isCodeInvalid(product: Product): boolean {
+    if (!product._isNew) return false;
+    const code = (product.code ?? '').trim();
+    return !code || !code.startsWith('P');
+  }
+
+  isQuantityInvalid(product: Product): boolean {
+    if (!product._isNew) return false;
+    const q = Number(product.quantity);
+    return (
+      product.quantity === null ||
+      product.quantity === undefined ||
+      (product.quantity as any) === '' ||
+      Number.isNaN(q) ||
+      q < 5
+    );
+  }
+
+  codeError(product: Product): string | null {
+    if (!product._isNew) return null;
+    const code = (product.code ?? '').trim();
+    if (!code) return 'Code is required';
+    if (!code.startsWith('P')) return 'Code must start with “P”';
+    return null;
+  }
+
+  quantityError(product: Product): string | null {
+    if (!product._isNew) return null;
+    const q = Number(product.quantity);
+    if (
+      product.quantity === null ||
+      product.quantity === undefined ||
+      (product.quantity as any) === '' ||
+      Number.isNaN(q)
+    ) {
+      return 'Quantity is required';
+    }
+    if (q < 5) return 'Quantity must be at least 5';
+    return null;
+  }
+
+  hasInvalidNewRows(): boolean {
+    return this.pendingNewRows().some(
+      (p) => this.isCodeInvalid(p) || this.isQuantityInvalid(p),
+    );
+  }
+
+  /** Keep signal identity updated so UI / counts refresh */
+  onNewRowFieldChange(product: Product, _field: string): void {
+    this.pendingNewRows.update((list) =>
+      list.map((p) => (p._tempId === product._tempId ? { ...product } : p)),
+    );
+  }
+
+  private touchKey(product: Product, field: 'code' | 'quantity'): string {
+    return `${product._tempId}::${field}`;
+  }
+
+  markNewRowTouched(product: Product, field: 'code' | 'quantity'): void {
+    const key = this.touchKey(product, field);
+    this.newRowTouched.update((set) => {
+      const next = new Set(set);
+      next.add(key);
+      return next;
+    });
+  }
+
+  isNewRowTouched(product: Product, field: 'code' | 'quantity'): boolean {
+    return this.newRowTouched().has(this.touchKey(product, field));
+  }
+
+  /** Show error only when invalid AND touched */
+  showCodeError(product: Product): boolean {
+    return this.isCodeInvalid(product) && this.isNewRowTouched(product, 'code');
+  }
+
+  showQuantityError(product: Product): boolean {
+    return (
+      this.isQuantityInvalid(product) &&
+      this.isNewRowTouched(product, 'quantity')
+    );
+  }
+
+  resetNewRowTouched() {
+    this.newRowTouched.set(new Set());
   }
 }

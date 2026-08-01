@@ -9,7 +9,7 @@
     position: relative;
 
     &::after {
-      content: '';
+      content: "";
       position: absolute;
       top: 2px;
       right: 2px;
@@ -56,4 +56,36 @@
 .fix-height {
   height: 24px;
   margin-top: 4px;
+}
+
+.cell-editor-with-error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.cell-invalid input.p-inputtext,
+input.p-inputtext.ng-invalid.ng-dirty {
+  border-color: var(--p-red-500, #ef4444) !important;
+}
+
+.p-error {
+  color: var(--p-red-500, #ef4444);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.header-new-row {
+  background: var(--p-surface-50, #f8fafc);
+}
+
+.header-new-cell {
+  font-weight: normal;
+  vertical-align: top;
+  padding: 0.5rem !important;
+}
+
+input.p-inputtext.ng-invalid.ng-dirty {
+  border-color: var(--p-red-500, #ef4444) !important;
 }
