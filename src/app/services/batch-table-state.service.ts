@@ -405,11 +405,11 @@ export class BatchTableStateService {
         break;
       case 'quantity':
         if (value === '') return 'تعداد الزامی است'; // or keep optional if you prefer
-        if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
+        if (isNaN(Number(value)) || Number(value) < 0) return 'مقدار ≥ 0';
         break;
       case 'price':
         if (value === '') return 'قیمت را وارد کنید'; // or keep optional
-        if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
+        if (isNaN(Number(value)) || Number(value) < 0) return 'مقدار ≥ 0';
         break;
     }
     return null;

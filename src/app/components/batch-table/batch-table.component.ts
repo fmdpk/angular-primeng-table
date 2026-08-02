@@ -350,7 +350,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.state.markAllRowsTouched();
 
     setTimeout(() => {
-      if (this.state.hasAnyInvalidNewRow()) {
+      if (this.state.hasAnyInvalidNewRow() || this.state.hasAnyInvalidRow()) {
         this.messageService.add({
           severity: 'warn',
           summary: 'توجه',
