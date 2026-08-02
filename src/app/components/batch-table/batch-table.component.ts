@@ -365,6 +365,12 @@ export class BatchTableComponent implements OnInit, OnDestroy {
           // message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
           message: `ذخیره سازی ${this.addedCount()} سطر اضافه شده و ${this.editedCount()} تغییر انجام شده؟`,
           header: 'ذخیره تغییرات',
+          acceptLabel: 'ذخیره',
+          rejectLabel: 'لغو',
+          rejectButtonProps: {
+            severity: 'secondary',
+            outlined: true,
+          },
           icon: 'pi pi-exclamation-triangle',
           accept: () => this.saveBatchAction(done),
         });
@@ -377,6 +383,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   saveBatchAction(done?: () => void): void {
     const payload = this.state.saveBatch();
+    console.log(payload);
 
     this.messageService.add({
       severity: 'success',
