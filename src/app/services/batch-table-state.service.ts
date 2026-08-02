@@ -75,8 +75,8 @@ export class BatchTableStateService {
       const data: Product[] = Array.from({ length: 23 }, (_, index) => ({
         id: index + 1,
         code: `P${String(index + 1).padStart(3, '0')}`,
-        name: `Product ${index + 1}`,
-        category: index % 2 === 0 ? 'Accessories' : 'Fitness',
+        name: `محصول ${index + 1}`,
+        category: index % 2 === 0 ? 'دسته 1' : 'دسته 2',
         quantity: (index + 1) * 3,
         price: 20 + index * 5,
       }));
@@ -335,12 +335,12 @@ export class BatchTableStateService {
     const added = this.addedCount();
 
     if (edited > 0 && added > 0) {
-      return `You have ${edited} unsaved change(s) and ${added} new row(s).`;
+      return `شما ${edited} تغییر دارید و ${added} سطر اضاف کردید`;
     }
     if (edited > 0) {
-      return `You have ${edited} unsaved change(s).`;
+      return `شما ${edited} تغییر ذخیره نشده دارید`;
     }
-    return `You have ${added} new row(s).`;
+    return `شما ${added} سطر اضفه کردید که ذخیره نشده است`;
   }
 
   columnLabel(field: string): string {

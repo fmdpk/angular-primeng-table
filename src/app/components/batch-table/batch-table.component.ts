@@ -150,8 +150,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       if (this.state.hasAnyInvalidNewRow()) {
         this.messageService.add({
           severity: 'warn',
-          summary: 'Validation',
-          detail: 'Please fix the errors in the row(s)',
+          summary: 'توجه',
+          detail: 'لطفا تمامی موارد نادرست در جدول را برطرف کنید',
         });
         if (sortChanged) this.restoreSortState();
         if (onlyPaging) this.restorePageState();
@@ -180,25 +180,25 @@ export class BatchTableComponent implements OnInit, OnDestroy {
             : 'column';
 
           this.confirmBeforeViewChange(
-            'Save before sorting?',
-            `Save your work before sorting by “${col}”?`,
+            'توجه',
+            `تغییرات را قبل از مرتب سازی “${col}” ذخیره کنید`,
             () => this.applyPendingLazyEvent(),
           );
         } else if (filterChanged) {
           this.pendingSortRestore = null;
           const col = this.guessFilterColumn(event.filters);
           const detail = col
-            ? `Save your work before filtering by “${col}”?`
-            : 'Save your work before applying filters?';
-          this.confirmBeforeViewChange('Save before filtering?', detail, () =>
+            ? `تغییرات را قبل از فیلتر کردن “${col}” ذخیره کنید`
+            : 'قبل از فیلتر کردن تغییرات را ذخیره کنید';
+          this.confirmBeforeViewChange('توجه', detail, () =>
             this.applyPendingLazyEvent(),
           );
         } else if (onlyPaging) {
           const detail =
             event.first !== undefined && event.rows
-              ? `Save your work before go to page “${event.first / event.rows + 1}”?`
-              : 'Save your work before pagination?';
-          this.confirmBeforeViewChange('Save before paginating?', detail, () =>
+              ? `تغییرات را قبل از رفتن به صفحه “${event.first / event.rows + 1}” ذخیره کنید`
+              : 'تغییرات را قبل از عوض کردن صفحه ذخیره کنید';
+          this.confirmBeforeViewChange('توجه', detail, () =>
             this.executeLoad(event),
           );
         }
@@ -224,8 +224,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     if (this.totalPendingCount() > 0 && next !== previousValue) {
       this.pendingGlobalFilter = next;
       this.confirmBeforeViewChange(
-        'Save before searching?',
-        'Save your work before running a global search?',
+        'توجه',
+        'تغییرات را قبل از جست و جو ذخیره کنید',
         () => {
           this.globalFilterValue = this.pendingGlobalFilter ?? '';
           this.pendingGlobalFilter = null;
@@ -295,8 +295,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       this.state.markAllNewRowsTouched();
       this.messageService.add({
         severity: 'warn',
-        summary: 'Validation',
-        detail: 'Please fix the errors in the row(s)',
+        summary: 'توجه',
+        detail: 'لطفا تمامی موارد نادرست در جدول را برطرف کنید',
       });
       return;
     }
@@ -308,39 +308,39 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.state.startAddRow();
   }
 
-  confirmAddRow(): void {
-    const draft = this.draftRow();
-    if (!draft) return;
+  // confirmAddRow(): void {
+  //   const draft = this.draftRow();
+  //   if (!draft) return;
 
-    if (!draft.code?.trim() || !draft.name?.trim()) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Validation',
-        detail: 'Code and Name are required',
-      });
-      return;
-    }
+  //   if (!draft.code?.trim() || !draft.name?.trim()) {
+  //     this.messageService.add({
+  //       severity: 'warn',
+  //       summary: 'Validation',
+  //       detail: 'Code and Name are required',
+  //     });
+  //     return;
+  //   }
 
-    const newProduct: Product = {
-      ...draft,
-      _tempId: crypto.randomUUID(),
-      _isNew: true,
-      _original: {
-        code: draft.code,
-        name: draft.name,
-        category: draft.category,
-        quantity: draft.quantity,
-        price: draft.price,
-      },
-    };
+  //   const newProduct: Product = {
+  //     ...draft,
+  //     _tempId: crypto.randomUUID(),
+  //     _isNew: true,
+  //     _original: {
+  //       code: draft.code,
+  //       name: draft.name,
+  //       category: draft.category,
+  //       quantity: draft.quantity,
+  //       price: draft.price,
+  //     },
+  //   };
 
-    this.products.update((list) => [newProduct, ...list]);
-    this.draftRow.set(null);
-  }
+  //   this.products.update((list) => [newProduct, ...list]);
+  //   this.draftRow.set(null);
+  // }
 
-  cancelAddRow(): void {
-    this.draftRow.set(null);
-  }
+  // cancelAddRow(): void {
+  //   this.draftRow.set(null);
+  // }
 
   // ---------- Batch save → simulate API, then reset tracking ----------
   saveBatch(done?: () => void, showConfirmMessage: boolean = true): void {
@@ -353,16 +353,18 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       if (this.state.hasAnyInvalidNewRow()) {
         this.messageService.add({
           severity: 'warn',
-          summary: 'Validation',
-          detail: 'Please fix the errors in the row(s) before saving.',
+          summary: 'توجه',
+          detail:
+            'لطفا تمامی موارد نادرست در جدول را قبل از ذخیره تغییرات برطرف کنید',
         });
         return;
       }
 
       if (showConfirmMessage) {
         this.confirmationService.confirm({
-          message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
-          header: 'Batch Update',
+          // message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
+          message: `ذخیره سازی ${this.addedCount()} سطر اضافه شده و ${this.editedCount()} تغییر انجام شده؟`,
+          header: 'ذخیره تغییرات',
           icon: 'pi pi-exclamation-triangle',
           accept: () => this.saveBatchAction(done),
         });
@@ -378,8 +380,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
     this.messageService.add({
       severity: 'success',
-      summary: 'Saved',
-      detail: `Saved ${payload.updates.length} update(s) and ${payload.creates.length} new row(s).`,
+      summary: 'ذخیره شد',
+      // detail: `Saved ${payload.updates.length} update(s) and ${payload.creates.length} new row(s).`,
+      detail: `با موفقیت انجام شد`,
     });
 
     const multiSortMeta = this.table?.multiSortMeta?.length
@@ -604,8 +607,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       header,
       message: `${this.state.pendingMessage()} ${detail}`,
       icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Save & continue',
-      rejectLabel: 'Discard & continue',
+      acceptLabel: 'ادامه',
+      rejectLabel: 'لغو',
       closable: false,
       closeOnEscape: false,
       acceptButtonStyleClass: 'p-button-success',
