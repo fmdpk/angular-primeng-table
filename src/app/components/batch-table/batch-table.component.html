@@ -169,8 +169,7 @@
 
                     <!-- show error under the value for new rows even after leaving the cell -->
                     @if (
-                      product._isNew &&
-                        state.isFieldTouched(product, item.field) &&
+                      state.isFieldTouched(product, item.field) &&
                         state.getFieldError(product, item.field);
                       as err
                     ) {

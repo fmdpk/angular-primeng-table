@@ -146,7 +146,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       this.pendingSortRestore = this.captureSortState();
       const onlyPaging = !sortChanged && !filterChanged;
 
-      this.state.markAllNewRowsTouched();
+      this.state.markAllRowsTouched();
       if (this.state.hasAnyInvalidNewRow()) {
         this.messageService.add({
           severity: 'warn',
@@ -347,7 +347,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     if (this.totalPendingCount() === 0) return;
 
     // Reveal all validation errors on new rows
-    this.state.markAllNewRowsTouched();
+    this.state.markAllRowsTouched();
 
     setTimeout(() => {
       if (this.state.hasAnyInvalidNewRow()) {

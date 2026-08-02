@@ -391,7 +391,7 @@ export class BatchTableStateService {
 
   /** Returns an error message or null for a field of a new row */
   getFieldError(product: Product, field: any): string | null {
-    if (!product._isNew) return null;
+    // if (!product._isNew) return null;
 
     const raw = (product as any)[field];
     const value = raw == null ? '' : String(raw).trim();
@@ -404,20 +404,19 @@ export class BatchTableStateService {
         if (!value) return 'Name is required';
         break;
       case 'quantity':
-        if (value === '') return null; // optional
+        if (value === '') return 'Quantity is required'; // or keep optional if you prefer
         if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
         break;
       case 'price':
-        if (value === '') return null; // optional
+        if (value === '') return 'Price is required'; // or keep optional
         if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
         break;
     }
     return null;
   }
 
-  /** True when every new row passes validation */
-  isNewRowValid(product: Product): boolean {
-    if (!product._isNew) return true;
+  /** True when the given product has no validation errors */
+  isRowValid(product: Product): boolean {
     return (
       !this.getFieldError(product, 'code') &&
       !this.getFieldError(product, 'name') &&
@@ -426,9 +425,14 @@ export class BatchTableStateService {
     );
   }
 
-  /** True if any new row is currently invalid */
+  /** True if any visible row (new or existing) is invalid */
+  hasAnyInvalidRow(): boolean {
+    return this.tableValue().some((p) => !this.isRowValid(p));
+  }
+
+  /** Keep the old name as an alias if you still use it in the template */
   hasAnyInvalidNewRow(): boolean {
-    return this.tableValue().some((p) => p._isNew && !this.isNewRowValid(p));
+    return this.tableValue().some((p) => p._isNew && !this.isRowValid(p));
   }
 
   /** Force change detection so error messages update while typing */
@@ -441,19 +445,32 @@ export class BatchTableStateService {
 
   /** Mark a single field as touched (new rows only) */
   markFieldTouched(product: Product, field: string): void {
-    if (!product._isNew) return;
     if (!(product as any)._touched) {
       (product as any)._touched = {};
     }
     (product as any)._touched[field] = true;
 
-    // force UI update
     this.products.update((list) => [...list]);
     this.pendingNewRows.update((list) => [...list]);
   }
 
   isFieldTouched(product: Product, field: string): boolean {
     return !!(product as any)._touched?.[field];
+  }
+
+  /** Mark every field of every row as touched */
+  markAllRowsTouched(): void {
+    this.tableValue().forEach((p) => {
+      if (!(p as any)._touched) {
+        (p as any)._touched = {};
+      }
+      ['code', 'name', 'category', 'quantity', 'price'].forEach((f) => {
+        (p as any)._touched[f] = true;
+      });
+    });
+
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
   }
 
   /** Mark every field of every new row as touched */
