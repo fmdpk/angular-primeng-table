@@ -133,7 +133,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   loadPage(event: TableLazyLoadEvent): void {
-    console.log('loadPage', event);
     if (!this.isBrowser) {
       return;
     }
@@ -168,8 +167,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       ) {
         this.pendingLazyEvent = event;
 
-        console.log(event);
-
         if (sortChanged) {
           // Prefer multiSortMeta (sortMode="multiple"), fall back to single sortField
           const sortFields = event.multiSortMeta?.length
@@ -197,7 +194,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
             this.applyPendingLazyEvent(),
           );
         } else if (onlyPaging) {
-          console.log(event);
           const detail =
             event.first !== undefined && event.rows
               ? `Save your work before go to page “${event.first / event.rows + 1}”?`
@@ -214,7 +210,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   onGlobalFilter(value: string): void {
-    console.log('onGlobalFilter', value);
     const next = value ?? '';
     this.globalFilterSubject.next({
       value: next,
@@ -429,7 +424,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   onCustomSort(event: SortEvent): void {
-    console.log(event);
     const newField = event.field ?? undefined;
     const newOrder = event.order ?? 0;
 
@@ -453,7 +447,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   private executeLoad(event: TableLazyLoadEvent): void {
-    console.log('executeLoad', event);
     const first = event.first ?? 0;
     const rows = event.rows ?? this.rows;
 
@@ -728,6 +721,66 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.rows = previous.rows;
     this.table.rows = previous.rows;
     this.table.first = previous.first;
+  }
+
+  onEditArrowKey(event: KeyboardEvent, product: Product, field: string): void {
+    // only when table is RTL
+    const isRtl =
+      this.table?.el?.nativeElement?.getAttribute('dir') === 'rtl' ||
+      getComputedStyle(this.table?.el?.nativeElement).direction === 'rtl';
+
+    if (!isRtl) return;
+
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+
+    // stop PrimeNG from handling the key
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    const currentTd = (event.target as HTMLElement).closest('td');
+    if (!currentTd) return;
+
+    const row = currentTd.parentElement as HTMLTableRowElement;
+    if (!row) return;
+
+    // all editable cells in this row (skip the actions column)
+    const editableCells = Array.from(
+      row.querySelectorAll(
+        'td[pEditableColumn], td[ng-reflect-p-editable-column]',
+      ),
+    ) as HTMLElement[];
+
+    // fallback if attribute selector doesn't match in your build
+    const cells =
+      editableCells.length > 0
+        ? editableCells
+        : (Array.from(row.querySelectorAll('td')).slice(
+            0,
+            -1,
+          ) as HTMLElement[]);
+
+    const currentIndex = cells.indexOf(currentTd as HTMLElement);
+    if (currentIndex === -1) return;
+
+    // In RTL the visual order is reversed relative to DOM order,
+    // so we invert the direction.
+    let targetIndex: number;
+    if (event.key === 'ArrowRight') {
+      // physical right → previous cell in DOM
+      targetIndex = currentIndex - 1;
+    } else {
+      // physical left → next cell in DOM
+      targetIndex = currentIndex + 1;
+    }
+
+    if (targetIndex < 0 || targetIndex >= cells.length) return;
+
+    const targetCell = cells[targetIndex];
+
+    // close current editor and open the target one (same as PrimeNG does)
+    (event.target as HTMLElement).blur();
+    targetCell.click();
   }
 
   clear(table: Table) {
