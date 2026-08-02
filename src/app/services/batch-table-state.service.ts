@@ -40,9 +40,6 @@ export class BatchTableStateService {
   readonly totalPendingCount = computed(
     () => this.editedCount() + this.addedCount(),
   );
-  readonly hasDraftRow = computed(() =>
-    this.pendingNewRows().some((row) => row._isNew && !!row._tempId),
-  );
 
   readonly tableValue = computed(() => {
     const page = this.products();
@@ -163,24 +160,20 @@ export class BatchTableStateService {
   }
 
   startAddRow(): Product {
-    if (this.hasDraftRow()) {
-      return this.pendingNewRows()[0];
-    }
-
     const draft: Product = {
       code: '',
       name: '',
       category: '',
-      quantity: 0,
-      price: 0,
+      quantity: 1,
+      price: 1,
       _isNew: true,
       _tempId: crypto.randomUUID(),
       _original: {
         code: '',
         name: '',
         category: '',
-        quantity: 0,
-        price: 0,
+        quantity: 1,
+        price: 1,
       },
     };
 
@@ -394,5 +387,88 @@ export class BatchTableStateService {
     const id =
       product.id != null ? String(product.id) : `temp-${product._tempId}`;
     return field ? `${id}::${field}` : id;
+  }
+
+  /** Returns an error message or null for a field of a new row */
+  getFieldError(product: Product, field: any): string | null {
+    if (!product._isNew) return null;
+
+    const raw = (product as any)[field];
+    const value = raw == null ? '' : String(raw).trim();
+
+    switch (field) {
+      case 'code':
+        if (!value) return 'Code is required';
+        break;
+      case 'name':
+        if (!value) return 'Name is required';
+        break;
+      case 'quantity':
+        if (value === '') return null; // optional
+        if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
+        break;
+      case 'price':
+        if (value === '') return null; // optional
+        if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
+        break;
+    }
+    return null;
+  }
+
+  /** True when every new row passes validation */
+  isNewRowValid(product: Product): boolean {
+    if (!product._isNew) return true;
+    return (
+      !this.getFieldError(product, 'code') &&
+      !this.getFieldError(product, 'name') &&
+      !this.getFieldError(product, 'quantity') &&
+      !this.getFieldError(product, 'price')
+    );
+  }
+
+  /** True if any new row is currently invalid */
+  hasAnyInvalidNewRow(): boolean {
+    return this.tableValue().some((p) => p._isNew && !this.isNewRowValid(p));
+  }
+
+  /** Force change detection so error messages update while typing */
+  onNewRowFieldChange(product: Product): void {
+    if (product._isNew) {
+      this.products.update((list) => [...list]);
+      this.pendingNewRows.update((list) => [...list]);
+    }
+  }
+
+  /** Mark a single field as touched (new rows only) */
+  markFieldTouched(product: Product, field: string): void {
+    if (!product._isNew) return;
+    if (!(product as any)._touched) {
+      (product as any)._touched = {};
+    }
+    (product as any)._touched[field] = true;
+
+    // force UI update
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
+  }
+
+  isFieldTouched(product: Product, field: string): boolean {
+    return !!(product as any)._touched?.[field];
+  }
+
+  /** Mark every field of every new row as touched */
+  markAllNewRowsTouched(): void {
+    this.tableValue().forEach((p) => {
+      if (!p._isNew) return;
+      if (!(p as any)._touched) {
+        (p as any)._touched = {};
+      }
+      ['code', 'name', 'category', 'quantity', 'price'].forEach((f) => {
+        (p as any)._touched[f] = true;
+      });
+    });
+
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
   }
 }

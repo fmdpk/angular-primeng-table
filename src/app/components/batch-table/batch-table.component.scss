@@ -60,6 +60,23 @@
   .p-datatable table {
     table-layout: fixed;
   }
+
+  // red border on invalid inputs
+  .p-inputtext.p-invalid {
+    border-color: var(--p-red-500, #ef4444) !important;
+  }
+
+  // small red validation text
+  .p-error {
+    color: var(--p-red-500, #ef4444);
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+
+  // keep rows from jumping too much when an error appears
+  td {
+    vertical-align: top;
+  }
 }
 
 .fix-height {

@@ -71,7 +71,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   readonly addedCount = this.state.addedCount;
   readonly editedCount = this.state.editedCount;
   readonly totalPendingCount = this.state.totalPendingCount;
-  readonly hasDraftRow = this.state.hasDraftRow;
   readonly tableValue = this.state.tableValue;
   readonly totalQuantity = this.state.totalQuantity;
   readonly totalPrice = this.state.totalPrice;
@@ -104,6 +103,13 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     first: number;
     rows: number;
   } | null = null;
+  columns: { field: string; header: string }[] = [
+    { field: 'code', header: 'Code' },
+    { field: 'name', header: 'Name' },
+    { field: 'category', header: 'Category' },
+    { field: 'quantity', header: 'Quantity' },
+    { field: 'price', header: 'Price' },
+  ];
 
   ngOnInit(): void {
     this.state.initializeData();
@@ -138,11 +144,23 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       const sortChanged = this.hasSortChanged(event);
       const filterChanged = this.hasFilterChanged(event.filters);
       this.pendingPageRestore = this.capturePageState();
+      this.pendingSortRestore = this.captureSortState();
+      const onlyPaging = !sortChanged && !filterChanged;
+
+      this.state.markAllNewRowsTouched();
+      if (this.state.hasAnyInvalidNewRow()) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Validation',
+          detail: 'Please fix the errors in the row(s)',
+        });
+        if (sortChanged) this.restoreSortState();
+        if (onlyPaging) this.restorePageState();
+        return;
+      }
 
       this.state.first.set(first);
       this.state.loading.set(true);
-
-      const onlyPaging = !sortChanged && !filterChanged;
 
       if (
         this.totalPendingCount() > 0 &&
@@ -153,7 +171,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         console.log(event);
 
         if (sortChanged) {
-          this.pendingSortRestore = this.captureSortState();
           // Prefer multiSortMeta (sortMode="multiple"), fall back to single sortField
           const sortFields = event.multiSortMeta?.length
             ? event.multiSortMeta.map((m) => m.field!).filter(Boolean)
@@ -251,7 +268,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   // ---------- Replace dirty helpers ----------
-  isCellDirty(product: Product, field: keyof Product): boolean {
+  isCellDirty(product: Product, field: any): boolean {
     return this.dirtyKeys().has(this.keyOf(product, field as string));
   }
 
@@ -269,13 +286,25 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     const field = event.field as keyof Product | undefined;
     if (!product || !field) return;
 
+    if (product._isNew) {
+      this.state.markFieldTouched(product, field as string);
+    }
+
     this.state.updateCellValue(product, field, product[field]);
     this.products.update((list) => [...list]);
     this.pendingNewRows.update((list) => [...list]);
   }
 
   startAddRow(): void {
-    if (this.hasDraftRow()) return;
+    if (this.state.hasAnyInvalidNewRow()) {
+      this.state.markAllNewRowsTouched();
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Validation',
+        detail: 'Please fix the errors in the row(s)',
+      });
+      return;
+    }
 
     if (this.first() !== 0) {
       this.loadPage({ first: 0, rows: this.rows });
@@ -322,17 +351,31 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   saveBatch(done?: () => void, showConfirmMessage: boolean = true): void {
     if (this.totalPendingCount() === 0) return;
 
-    if (showConfirmMessage) {
-      this.confirmationService.confirm({
-        message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
-        header: 'Batch Update',
-        icon: 'pi pi-exclamation-triangle',
-        accept: () => this.saveBatchAction(done),
-      });
-      return;
-    }
+    // Reveal all validation errors on new rows
+    this.state.markAllNewRowsTouched();
 
-    this.saveBatchAction(done);
+    setTimeout(() => {
+      if (this.state.hasAnyInvalidNewRow()) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Validation',
+          detail: 'Please fix the errors in the row(s) before saving.',
+        });
+        return;
+      }
+
+      if (showConfirmMessage) {
+        this.confirmationService.confirm({
+          message: `Save ${this.editedCount()} change(s) and ${this.addedCount()} added row(s)?`,
+          header: 'Batch Update',
+          icon: 'pi pi-exclamation-triangle',
+          accept: () => this.saveBatchAction(done),
+        });
+        return;
+      }
+
+      this.saveBatchAction(done);
+    }, 0);
   }
 
   saveBatchAction(done?: () => void): void {
@@ -369,10 +412,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.loadPage({ first: this.first(), rows: this.rows });
   }
 
-  undoCell(
-    product: Product,
-    field: keyof Omit<Product, '_isNew' | '_original' | '_tempId'>,
-  ): void {
+  undoCell(product: Product, field: any): void {
     this.state.undoCell(product, field);
     this.products.update((list) => [...list]);
     this.pendingNewRows.update((list) => [...list]);

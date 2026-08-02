@@ -7,5 +7,6 @@ export interface Product {
   price: number;
   _isNew?: boolean;
   _tempId?: string;
+  _touched?: Partial<Record<string, boolean>>;
   _original?: Omit<Product, '_isNew' | '_original' | '_tempId'>;
 }
