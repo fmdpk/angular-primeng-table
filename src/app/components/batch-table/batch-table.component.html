@@ -6,7 +6,7 @@
         label="اضافه کردن سطر"
         icon="pi pi-plus"
         (onClick)="startAddRow()"
-        [disabled]="state.hasAnyInvalidNewRow()"
+        [disabled]="state.hasAnyInvalidNewRow() || !!globalFilterValue.length"
       />
       <p-button
         label="ذخیره"

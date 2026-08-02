@@ -5,7 +5,6 @@ import {
   OnInit,
   signal,
   ViewChild,
-  WritableSignal,
 } from '@angular/core';
 import {
   Table,
@@ -116,7 +115,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
     this.globalFilterSubscription = this.globalFilterSubject
       .pipe(
-        debounceTime(600),
+        debounceTime(500),
         distinctUntilChanged(
           (previous, current) =>
             previous.value === current.value &&
@@ -124,6 +123,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         ),
       )
       .subscribe(({ value, previousValue }) => {
+        console.log(value, previousValue);
         this.handleGlobalFilterChange(value, previousValue);
       });
   }
@@ -210,6 +210,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   onGlobalFilter(value: string): void {
+    console.log(value);
     const next = value ?? '';
     this.globalFilterSubject.next({
       value: next,
@@ -220,6 +221,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   private handleGlobalFilterChange(value: string, previousValue: string): void {
     const next = value ?? '';
+    console.log(value);
+    console.log(previousValue);
 
     if (this.totalPendingCount() > 0 && next !== previousValue) {
       this.pendingGlobalFilter = next;
@@ -242,6 +245,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       );
       return;
     }
+
+    console.log(next);
 
     this.globalFilterValue = next;
     this.loadPage({
@@ -366,6 +371,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
           message: `ذخیره سازی ${this.addedCount()} سطر اضافه شده و ${this.editedCount()} تغییر انجام شده؟`,
           header: 'ذخیره تغییرات',
           acceptLabel: 'ذخیره',
+          closable: false,
+          closeOnEscape: false,
           rejectLabel: 'لغو',
           rejectButtonProps: {
             severity: 'secondary',
@@ -412,9 +419,22 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   discardAll(): void {
-    this.state.discardAll();
-    this.resetRows();
-    this.loadPage({ first: this.first(), rows: this.rows });
+    this.confirmationService.confirm({
+      header: 'توجه',
+      message: `تمام تغییرات برگردانده شود؟`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'ادامه',
+      rejectLabel: 'لغو',
+      closable: false,
+      closeOnEscape: false,
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-danger p-button-outlined',
+      accept: () => {
+        this.state.discardAll();
+        this.resetRows();
+        this.loadPage({ first: this.first(), rows: this.rows });
+      },
+    });
   }
 
   undoCell(product: Product, field: any): void {
