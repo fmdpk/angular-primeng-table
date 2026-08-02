@@ -398,17 +398,17 @@ export class BatchTableStateService {
 
     switch (field) {
       case 'code':
-        if (!value) return 'Code is required';
+        if (!value) return 'کد را وارد کنید';
         break;
       case 'name':
-        if (!value) return 'Name is required';
+        if (!value) return 'نام را وارد کنید';
         break;
       case 'quantity':
-        if (value === '') return 'Quantity is required'; // or keep optional if you prefer
+        if (value === '') return 'تعداد الزامی است'; // or keep optional if you prefer
         if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
         break;
       case 'price':
-        if (value === '') return 'Price is required'; // or keep optional
+        if (value === '') return 'قیمت را وارد کنید'; // or keep optional
         if (isNaN(Number(value)) || Number(value) < 0) return 'Must be ≥ 0';
         break;
     }

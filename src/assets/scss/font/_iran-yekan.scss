@@ -1,0 +1,74 @@
+// @font-face {
+//     font-family: 'iranYekan';
+//     src: url('../fonts/iran-yekan/iranyekanwebbold.woff2');
+//     src: url('../fonts/iran-yekan/iranyekanwebbold.woff2') format('woff2');
+//     font-weight: normal;
+//     -webkit-font-feature-settings: "ss02";
+//     font-feature-settings: "ss02";
+// }
+
+@font-face {
+  font-family: "iranYekan";
+  src:
+    url("/assets/fonts/iran-yekan/IRANYekanXVF.woff") format("woff-variations"),
+    url("/assets/fonts/iran-yekan/IRANYekanXVF.woff") format("woff"),
+    url("/assets/fonts/iran-yekan/IRANYekanXVF.woff2") format("woff2");
+  font-display: fallback;
+  -webkit-font-feature-settings: "ss02";
+  font-feature-settings: "ss02";
+}
+
+@font-face {
+  font-family: "iranYekan";
+  font-style: normal;
+  font-weight: 300;
+  src:
+    url("/assets/fonts/iran-yekan/IRANYekanX-Light.woff2") format("woff2"),
+    url("/assets/fonts/iran-yekan/IRANYekanX-Light.woff") format("woff");
+  -webkit-font-feature-settings: "ss02";
+  font-feature-settings: "ss02";
+}
+
+@font-face {
+  font-family: "iranYekan";
+  font-style: normal;
+  font-weight: 400;
+  src:
+    url("/assets/fonts/iran-yekan/IRANYekanX-Regular.woff2") format("woff2"),
+    url("/assets/fonts/iran-yekan/IRANYekanX-Regular.woff") format("woff");
+  -webkit-font-feature-settings: "ss02";
+  font-feature-settings: "ss02";
+}
+
+@font-face {
+  font-family: "iranYekan";
+  font-style: normal;
+  font-weight: 500;
+  src:
+    url("/assets/fonts/iran-yekan/IRANYekanX-Medium.woff2") format("woff2"),
+    url("/assets/fonts/iran-yekan/IRANYekanX-Medium.woff") format("woff");
+  -webkit-font-feature-settings: "ss02";
+  font-feature-settings: "ss02";
+}
+
+@font-face {
+  font-family: "iranYekan";
+  font-style: normal;
+  font-weight: 700;
+  src:
+    url("/assets/fonts/iran-yekan/IRANYekanX-Bold.woff2") format("woff2"),
+    url("/assets/fonts/iran-yekan/IRANYekanX-Bold.woff") format("woff");
+  -webkit-font-feature-settings: "ss02";
+  font-feature-settings: "ss02";
+}
+
+@font-face {
+  font-family: "iranYekan";
+  font-style: normal;
+  font-weight: 900;
+  src:
+    url("/assets/fonts/iran-yekan/IRANYekanX-ExtraBold.woff2") format("woff2"),
+    url("/assets/fonts/iran-yekan/IRANYekanX-ExtraBold.woff") format("woff");
+  -webkit-font-feature-settings: "ss02";
+  font-feature-settings: "ss02";
+}

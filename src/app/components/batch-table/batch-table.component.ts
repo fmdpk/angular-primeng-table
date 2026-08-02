@@ -103,12 +103,12 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     first: number;
     rows: number;
   } | null = null;
-  columns: { field: string; header: string }[] = [
-    { field: 'code', header: 'Code' },
-    { field: 'name', header: 'Name' },
-    { field: 'category', header: 'Category' },
-    { field: 'quantity', header: 'Quantity' },
-    { field: 'price', header: 'Price' },
+  columns: { field: string; header: string; faHeader: string }[] = [
+    { field: 'code', header: 'Code', faHeader: 'کد' },
+    { field: 'name', header: 'Name', faHeader: 'نام' },
+    { field: 'category', header: 'Category', faHeader: 'دسته بندی' },
+    { field: 'quantity', header: 'Quantity', faHeader: 'تعداد' },
+    { field: 'price', header: 'Price', faHeader: 'قیمت' },
   ];
 
   ngOnInit(): void {
