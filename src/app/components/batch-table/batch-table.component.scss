@@ -43,12 +43,14 @@
     }
   }
 
+  // keep your existing styles…
   .totals-row {
     background-color: var(--p-surface-100);
     font-weight: 600;
 
     td {
       border-top: 2px solid var(--p-surface-300);
+      background: inherit; // important so sticky bg covers cells
     }
   }
 

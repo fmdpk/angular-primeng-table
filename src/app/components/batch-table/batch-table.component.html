@@ -1,6 +1,6 @@
 <div class="card">
   <!-- Toolbar -->
-  <div class="flex-column justify-content-between mb-3 gap-2">
+  <div class="flex justify-between mb-3 gap-2">
     <div class="flex gap-2">
       <p-button
         label="اضافه کردن سطر"
@@ -28,12 +28,12 @@
       @if (editedCount() > 0 || addedCount() > 0) {
         <span class="text-color-secondary">
           @if (editedCount() > 0 && addedCount() > 0) {
-            {{ editedCount() }} تغییر ذخیره نشده و {{ addedCount() }} سطر(های)
-            اضافه شده
+            {{ editedCount() }} تغییر ذخیره نشده و {{ addedCount() }} سطر اضافه
+            شده
           } @else if (editedCount() > 0) {
-            {{ editedCount() }} تغییرات ذخیره نشده
+            {{ editedCount() }} تغییر ذخیره نشده
           } @else {
-            {{ addedCount() }} سطر(های) اضافه شده
+            {{ addedCount() }} سطر اضافه شده
           }
         </span>
       }
