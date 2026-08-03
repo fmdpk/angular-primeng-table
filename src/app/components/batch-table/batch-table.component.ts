@@ -389,7 +389,8 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   resetRows() {
-    this.rows = 5;
+    this.state.totalRecords.set(this.state.rows);
+    this.rows = this.state.rows;
   }
 
   mergePending(serverRow: Product): Product {
@@ -460,6 +461,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       this.loadPage({ first: 0, rows: this.rows });
     }
     this.rows = this.rows + 1;
+    this.state.totalRecords.set(this.rows * this.state.rows);
     this.state.startAddRow();
   }
 
@@ -578,7 +580,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   undoRow(product: Product): void {
     this.state.undoRow(product);
-    // this.rows = this.rows - 1;
     this.products.update((list) => [...list]);
   }
 
