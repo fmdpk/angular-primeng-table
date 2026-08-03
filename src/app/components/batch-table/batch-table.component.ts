@@ -136,7 +136,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         ),
       )
       .subscribe(({ value, previousValue }) => {
-        console.log(value, previousValue);
         this.handleGlobalFilterChange(value, previousValue);
       });
   }
@@ -335,7 +334,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   onGlobalFilter(value: string): void {
-    console.log(value);
     const next = value ?? '';
     this.globalFilterSubject.next({
       value: next,
@@ -346,8 +344,16 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   private handleGlobalFilterChange(value: string, previousValue: string): void {
     const next = value ?? '';
-    console.log(value);
-    console.log(previousValue);
+
+    this.state.markAllRowsTouched();
+    if (this.state.hasAnyInvalidNewRow()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'توجه',
+        detail: 'لطفا تمامی موارد نادرست در جدول را برطرف کنید',
+      });
+      return;
+    }
 
     if (this.totalPendingCount() > 0 && next !== previousValue) {
       this.pendingGlobalFilter = next;
@@ -370,8 +376,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       );
       return;
     }
-
-    console.log(next);
 
     this.globalFilterValue = next;
     this.loadPage({
@@ -515,7 +519,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   saveBatchAction(done?: () => void): void {
     const payload = this.state.saveBatch();
-    console.log(payload);
 
     this.messageService.add({
       severity: 'success',
