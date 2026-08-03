@@ -58,7 +58,7 @@
   }
 
   .p-datatable table {
-    table-layout: fixed;
+    // table-layout: fixed;
   }
 
   // red border on invalid inputs
@@ -76,6 +76,13 @@
   // keep rows from jumping too much when an error appears
   td {
     vertical-align: top;
+  }
+
+  [dir="rtl"] .p-datatable-resizable-column {
+    .p-column-resizer {
+      inset-inline-end: auto;
+      inset-inline-start: 0; // or the opposite, depending on visual preference
+    }
   }
 }
 

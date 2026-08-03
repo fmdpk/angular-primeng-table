@@ -23,8 +23,8 @@ import { CommonModule } from '@angular/common';
 import { Product } from '../../models/product';
 import { TooltipModule } from 'primeng/tooltip';
 import { BatchTableStateService } from '../../services/batch-table-state.service';
-import { CurrencyDisplayPipe } from '../../pipes/currency-formatter.pipe';
 import { RowHighlightDirective } from '../../directives/row-highlight.directive';
+import { MultiSelectModule } from 'primeng/multiselect';
 import {
   debounceTime,
   distinctUntilChanged,
@@ -46,8 +46,8 @@ import { PopoverModule } from 'primeng/popover';
     ConfirmDialogModule,
     ToastModule,
     TooltipModule,
-    CurrencyDisplayPipe,
     RowHighlightDirective,
+    MultiSelectModule,
     PopoverModule,
   ],
   providers: [ConfirmationService, MessageService],
@@ -109,6 +109,15 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     { field: 'quantity', header: 'Quantity', faHeader: 'تعداد' },
     { field: 'price', header: 'Price', faHeader: 'قیمت' },
   ];
+  selectedColumns: { field: string; header: string; faHeader: string }[] = [
+    { field: 'code', header: 'Code', faHeader: 'کد' },
+    { field: 'name', header: 'Name', faHeader: 'نام' },
+    { field: 'category', header: 'Category', faHeader: 'دسته بندی' },
+    { field: 'quantity', header: 'Quantity', faHeader: 'تعداد' },
+    { field: 'price', header: 'Price', faHeader: 'قیمت' },
+  ];
+
+  private originalOnColumnResizeEnd?: (...args: any[]) => void;
 
   ngOnInit(): void {
     this.state.initializeData();
@@ -130,6 +139,59 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.globalFilterSubscription?.unsubscribe();
+
+    // restore original if we patched it
+    if (this.table && this.originalOnColumnResizeEnd) {
+      (this.table as any).onColumnResizeEnd = this.originalOnColumnResizeEnd;
+      this.originalOnColumnResizeEnd = undefined;
+    }
+  }
+
+  ngAfterViewInit(): void {
+    setTimeout(() => this.patchRtlColumnResize(), 0);
+  }
+
+  private isTableRtl(): boolean {
+    const el = this.table?.el?.nativeElement as HTMLElement | undefined;
+    if (!el) return false;
+    return (
+      el.getAttribute('dir') === 'rtl' ||
+      getComputedStyle(el).direction === 'rtl'
+    );
+  }
+
+  private patchRtlColumnResize(): void {
+    const table = this.table as any;
+    if (!table?.onColumnResizeEnd) return;
+
+    // already patched
+    if (this.originalOnColumnResizeEnd) return;
+
+    this.originalOnColumnResizeEnd = table.onColumnResizeEnd.bind(table);
+
+    table.onColumnResizeEnd = (...args: any[]) => {
+      if (this.isTableRtl()) {
+        const helper = table.resizeHelperViewChild?.nativeElement as
+          | HTMLElement
+          | undefined;
+        const startX = table.lastResizerHelperX;
+
+        // only invert when we have valid numbers
+        if (
+          helper &&
+          typeof startX === 'number' &&
+          Number.isFinite(startX) &&
+          Number.isFinite(helper.offsetLeft)
+        ) {
+          const currentLeft = helper.offsetLeft;
+          const delta = currentLeft - startX;
+          // move helper so original code computes -delta
+          helper.style.left = `${startX - delta}px`;
+        }
+      }
+
+      return this.originalOnColumnResizeEnd!(...args);
+    };
   }
 
   loadPage(event: TableLazyLoadEvent): void {

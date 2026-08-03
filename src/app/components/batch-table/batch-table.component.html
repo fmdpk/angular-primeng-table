@@ -44,11 +44,12 @@
   @if (isBrowser) {
     <p-table
       #dt
-      dir="rtl"
+      [dir]="'rtl'"
       [value]="tableValue()"
       [lazy]="true"
       [paginator]="true"
       [rows]="rows"
+      [columns]="selectedColumns"
       [totalRecords]="totalRecords()"
       [first]="first()"
       [loading]="loading()"
@@ -56,6 +57,10 @@
       [customSort]="true"
       dataKey="id"
       [sortMode]="'multiple'"
+      [reorderableColumns]="true"
+      [scrollable]="true"
+      scrollHeight="400px"
+      [resizableColumns]="true"
       (onLazyLoad)="loadPage($event)"
       (onEditComplete)="onCellEditComplete($event)"
       [tableStyle]="{ 'min-width': '50rem', 'table-layout': 'fixed' }"
@@ -70,20 +75,37 @@
             [ngModel]="globalFilterValue"
             (ngModelChange)="onGlobalFilter($event)"
           />
-          <p-button
-            label="پاک کردن"
-            [outlined]="true"
-            icon="pi pi-filter-slash"
-            (click)="clear(dt)"
-          />
+          <div class="flex items-center justify-between gap-2">
+            <p-multiselect
+              display="chip"
+              [options]="columns"
+              [(ngModel)]="selectedColumns"
+              optionLabel="faHeader"
+              selectedItemsLabel="{0} ستون انتخاب شده"
+              [style]="{ 'min-width': '200px' }"
+              placeholder="ستون ها را انتخاب کنید"
+            />
+            <p-button
+              label="پاک کردن"
+              [outlined]="true"
+              icon="pi pi-filter-slash"
+              (click)="clear(dt)"
+            />
+          </div>
         </div>
       </ng-template>
 
       <!-- Header -->
-      <ng-template pTemplate="header">
+      <ng-template pTemplate="header" let-columns>
         <tr>
+          <th style="width: 46px"></th>
           @for (item of columns; track $index) {
-            <th [pSortableColumn]="item.field" style="width: 20%">
+            <th
+              [pSortableColumn]="item.field"
+              style="width: 20%"
+              pReorderableColumn
+              pResizableColumn
+            >
               {{ item.faHeader }}
               <p-sortIcon [field]="item.field" />
               <p-columnFilter
@@ -102,11 +124,20 @@
       </ng-template>
 
       <!-- Body – existing + new rows -->
-      <ng-template pTemplate="body" let-product let-ri="rowIndex">
+      <ng-template
+        pTemplate="body"
+        let-product
+        let-columns="columns"
+        let-index="rowIndex"
+      >
         <tr
           [class.row-new]="product._isNew"
           [appRowHighlight]="isDirty(product)"
+          [pReorderableRow]="index"
         >
+          <td>
+            <span class="pi pi-bars" pReorderableRowHandle></span>
+          </td>
           <!-- CODE -->
           @for (item of columns; track $index) {
             <td
@@ -227,9 +258,10 @@
       </ng-template>
       <ng-template pTemplate="footer">
         <tr class="font-bold totals-row">
-          <td colspan="3" class="text-right">در این صفحه</td>
+          <td colspan="4" class="text-right">در این صفحه</td>
           <td>{{ totalQuantity() | number }}</td>
           <td>{{ totalPrice() | number }} تومان</td>
+          <td></td>
           <td></td>
         </tr>
       </ng-template>
