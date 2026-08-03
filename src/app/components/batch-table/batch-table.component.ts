@@ -425,6 +425,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   }
 
   startAddRow(): void {
+    console.log(this.table.filters);
     if (this.state.hasAnyInvalidNewRow()) {
       this.state.markAllNewRowsTouched();
       this.messageService.add({
@@ -435,11 +436,49 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!!this.globalFilterValue.length) {
+      this.state.markAllNewRowsTouched();
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'توجه',
+        detail: 'برای اضافه کردن سطر ابتدا جست و جو را پاک کنید',
+      });
+      return;
+    }
+
+    if (this.hasFilterInColumns()) {
+      this.state.markAllNewRowsTouched();
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'توجه',
+        detail: 'برای اضافه کردن سطر ابتدا فیلتر ها را پاک کنید',
+      });
+      return;
+    }
+
     if (this.first() !== 0) {
       this.loadPage({ first: 0, rows: this.rows });
     }
     this.rows = this.rows + 1;
     this.state.startAddRow();
+  }
+
+  hasFilterInColumns() {
+    const filters = this.table.filters;
+    let hasFilter: boolean = false;
+    for (const field in filters) {
+      if (
+        Object.hasOwn(filters, field) &&
+        Array.isArray(filters[field]) &&
+        !hasFilter
+      ) {
+        filters[field].forEach((element) => {
+          hasFilter = !!element.value;
+        });
+      }
+    }
+
+    return hasFilter;
   }
 
   // confirmAddRow(): void {
