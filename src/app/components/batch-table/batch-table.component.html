@@ -59,10 +59,11 @@
       [sortMode]="'multiple'"
       [reorderableColumns]="true"
       [scrollable]="true"
-      scrollHeight="400px"
+      scrollHeight="500px"
       [resizableColumns]="true"
       (onLazyLoad)="loadPage($event)"
       (onEditComplete)="onCellEditComplete($event)"
+      (onColReorder)="onColReorder($event)"
       [tableStyle]="{ 'min-width': '50rem', 'table-layout': 'fixed' }"
     >
       <!-- Caption -->
@@ -77,6 +78,9 @@
           />
           <div class="flex items-center justify-between gap-2">
             <p-multiselect
+              [disabled]="
+                state.hasAnyInvalidNewRow() || state.hasAnyInvalidRow()
+              "
               display="chip"
               [options]="columns"
               [(ngModel)]="selectedColumns"
@@ -120,7 +124,7 @@
               />
             </th>
           }
-          <th style="width: 4rem"></th>
+          <th style="width: 4rem" pResizableColumn pReorderableColumn></th>
         </tr>
       </ng-template>
 
@@ -259,10 +263,16 @@
       </ng-template>
       <ng-template pTemplate="footer">
         <tr class="font-bold totals-row">
-          <td colspan="4" class="text-right">در این صفحه</td>
-          <td>{{ totalQuantity() | number }}</td>
-          <td>{{ totalPrice() | number }} تومان</td>
           <td></td>
+          @for (col of selectedColumns; track col.field) {
+            <td>
+              @if (col.field === "quantity") {
+                {{ totalQuantity() | number }}
+              } @else if (col.field === "price") {
+                {{ totalPrice() | number }} تومان
+              }
+            </td>
+          }
           <td></td>
         </tr>
       </ng-template>

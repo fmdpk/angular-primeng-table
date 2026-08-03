@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import {
   Table,
+  TableColumnReorderEvent,
   TableEditCompleteEvent,
   TableLazyLoadEvent,
   TableModule,
@@ -194,8 +195,22 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Call this whenever the multiselect changes */
   onSelectedColumnsChange(cols: typeof this.selectedColumns): void {
+    if (!cols?.length) {
+      this.selectedColumns = [...this.columns];
+      this.saveSelectedColumns();
+      return;
+    }
+
+    // Preserve current order for columns that stay selected
+    const selectedFields = new Set(cols.map((c) => c.field));
+    const kept = this.selectedColumns.filter((c) =>
+      selectedFields.has(c.field),
+    );
+    const keptFields = new Set(kept.map((c) => c.field));
+    const added = cols.filter((c) => !keptFields.has(c.field));
+
+    this.selectedColumns = [...kept, ...added];
     this.saveSelectedColumns();
   }
 
@@ -926,5 +941,47 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   clear(table: Table) {
     table.clear();
     this.globalFilterValue = '';
+  }
+
+  /** After user drags a column header */
+  onColReorder(event: TableColumnReorderEvent): void {
+    // PrimeNG may pass the new columns array
+    if (
+      Array.isArray((event as any).columns) &&
+      (event as any).columns.length
+    ) {
+      // Keep only data columns (same shape as selectedColumns)
+      const reordered = (event as any).columns.filter((c: any) =>
+        this.columns.some((col) => col.field === c.field),
+      );
+      if (reordered.length) {
+        this.selectedColumns = reordered.map(
+          (c: any) => this.columns.find((col) => col.field === c.field)!,
+        );
+        this.saveSelectedColumns();
+        return;
+      }
+    }
+
+    // Fallback: reorder using drag/drop indices (among data columns only)
+    const dragIndex = event.dragIndex;
+    const dropIndex = event.dropIndex;
+    if (
+      dragIndex == null ||
+      dropIndex == null ||
+      dragIndex === dropIndex ||
+      dragIndex < 0 ||
+      dropIndex < 0 ||
+      dragIndex >= this.selectedColumns.length ||
+      dropIndex >= this.selectedColumns.length
+    ) {
+      return;
+    }
+
+    const next = [...this.selectedColumns];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(dropIndex, 0, moved);
+    this.selectedColumns = next;
+    this.saveSelectedColumns();
   }
 }

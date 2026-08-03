@@ -1,7 +1,7 @@
 :host ::ng-deep {
-  .row-new {
-    background-color: #e3f2fd !important;
-  }
+  // .row-new {
+  //   background-color: #e3f2fd !important;
+  // }
 
   // Highlight changed cells
   .cell-dirty {
@@ -20,10 +20,10 @@
     }
   }
 
-  // // New rows
-  // .row-new {
-  //   background-color: #e8f5e9 !important;
-  // }
+  // New rows
+  .row-new {
+    background-color: #e8f5e9 !important;
+  }
 
   // Draft (add) row
   .draft-row {
@@ -82,6 +82,46 @@
     .p-column-resizer {
       inset-inline-end: auto;
       inset-inline-start: 0; // or the opposite, depending on visual preference
+    }
+  }
+
+  .p-datatable-scrollable {
+    // Footer stays at the bottom of the scroll viewport
+    .p-datatable-tfoot > tr > td,
+    .p-datatable-footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      background: var(--p-surface-100, #f8f9fa);
+    }
+
+    // If the footer is rendered as <tfoot> inside the scrollable table
+    .p-datatable-table-container,
+    .p-datatable-scrollable-body {
+      // ensure sticky works relative to the scroll container
+    }
+
+    tfoot.p-datatable-tfoot,
+    .p-datatable-tfoot {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+
+      td {
+        background: var(--p-surface-100, #f8f9fa);
+        box-shadow: 0 -1px 0 var(--p-surface-300, #dee2e6);
+      }
+    }
+  }
+
+  // keep your existing styles…
+  .totals-row {
+    background-color: var(--p-surface-100);
+    font-weight: 600;
+
+    td {
+      border-top: 2px solid var(--p-surface-300);
+      background: inherit; // important so sticky bg covers cells
     }
   }
 }

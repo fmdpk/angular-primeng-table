@@ -6,3 +6,7 @@ body {
   direction: rtl;
   font-family: "iranYekan";
 }
+
+.p-datatable-table-container {
+  overflow-x: hidden !important;
+}
