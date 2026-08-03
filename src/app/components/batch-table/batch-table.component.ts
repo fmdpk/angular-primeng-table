@@ -117,10 +117,13 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     { field: 'price', header: 'Price', faHeader: 'قیمت' },
   ];
 
+  private readonly COLUMNS_STORAGE_KEY = 'batch-table-selected-columns';
+
   private originalOnColumnResizeEnd?: (...args: any[]) => void;
 
   ngOnInit(): void {
     this.state.initializeData();
+    this.restoreSelectedColumns();
 
     this.globalFilterSubscription = this.globalFilterSubject
       .pipe(
@@ -149,6 +152,51 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
   ngAfterViewInit(): void {
     setTimeout(() => this.patchRtlColumnResize(), 0);
+  }
+
+  /** Load from localStorage; fall back to all columns */
+  private restoreSelectedColumns(): void {
+    try {
+      const raw = localStorage.getItem(this.COLUMNS_STORAGE_KEY);
+      if (!raw) {
+        this.selectedColumns = [...this.columns];
+        this.saveSelectedColumns();
+        return;
+      }
+
+      const saved: { field: string; header: string; faHeader: string }[] =
+        JSON.parse(raw);
+
+      // Keep only columns that still exist, preserve order from `columns`
+      const byField = new Map(this.columns.map((c) => [c.field, c]));
+      const restored = (saved || [])
+        .map((s) => byField.get(s.field))
+        .filter((c): c is (typeof this.columns)[number] => !!c);
+
+      this.selectedColumns = restored.length > 0 ? restored : [...this.columns];
+
+      // Re-save in case some columns were removed from the app
+      this.saveSelectedColumns();
+    } catch {
+      this.selectedColumns = [...this.columns];
+      this.saveSelectedColumns();
+    }
+  }
+
+  private saveSelectedColumns(): void {
+    try {
+      localStorage.setItem(
+        this.COLUMNS_STORAGE_KEY,
+        JSON.stringify(this.selectedColumns ?? []),
+      );
+    } catch {
+      // ignore quota / private mode errors
+    }
+  }
+
+  /** Call this whenever the multiselect changes */
+  onSelectedColumnsChange(cols: typeof this.selectedColumns): void {
+    this.saveSelectedColumns();
   }
 
   private isTableRtl(): boolean {
