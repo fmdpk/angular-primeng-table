@@ -271,7 +271,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       const onlyPaging = !sortChanged && !filterChanged;
 
       this.state.markAllRowsTouched();
-      if (this.state.hasAnyInvalidNewRow()) {
+      if (this.state.hasAnyInvalidNewRow() || this.state.hasAnyInvalidRow()) {
         this.messageService.add({
           severity: 'warn',
           summary: 'توجه',
@@ -346,7 +346,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     const next = value ?? '';
 
     this.state.markAllRowsTouched();
-    if (this.state.hasAnyInvalidNewRow()) {
+    if (this.state.hasAnyInvalidNewRow() || this.state.hasAnyInvalidRow()) {
       this.messageService.add({
         severity: 'warn',
         summary: 'توجه',
