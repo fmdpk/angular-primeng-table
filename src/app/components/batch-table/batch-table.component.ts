@@ -481,40 +481,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     return hasFilter;
   }
 
-  // confirmAddRow(): void {
-  //   const draft = this.draftRow();
-  //   if (!draft) return;
-
-  //   if (!draft.code?.trim() || !draft.name?.trim()) {
-  //     this.messageService.add({
-  //       severity: 'warn',
-  //       summary: 'Validation',
-  //       detail: 'Code and Name are required',
-  //     });
-  //     return;
-  //   }
-
-  //   const newProduct: Product = {
-  //     ...draft,
-  //     _tempId: crypto.randomUUID(),
-  //     _isNew: true,
-  //     _original: {
-  //       code: draft.code,
-  //       name: draft.name,
-  //       category: draft.category,
-  //       quantity: draft.quantity,
-  //       price: draft.price,
-  //     },
-  //   };
-
-  //   this.products.update((list) => [newProduct, ...list]);
-  //   this.draftRow.set(null);
-  // }
-
-  // cancelAddRow(): void {
-  //   this.draftRow.set(null);
-  // }
-
   // ---------- Batch save → simulate API, then reset tracking ----------
   saveBatch(done?: () => void, showConfirmMessage: boolean = true): void {
     if (this.totalPendingCount() === 0) return;
