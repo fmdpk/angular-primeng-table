@@ -157,7 +157,7 @@
                     (ngModelChange)="state.onNewRowFieldChange(product)"
                     (blur)="state.markFieldTouched(product, item.field)"
                     class="w-full"
-                    (keydown)="onEditArrowKey($event, product, item.field)"
+                    (keydown)="onEditArrowKey($event)"
                     [class.p-invalid]="
                       state.isFieldTouched(product, item.field) &&
                       !!state.getFieldError(product, item.field)
