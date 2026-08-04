@@ -1,12 +1,15 @@
-export interface Product {
-  id?: number;
+export interface ProductCore {
   code: string;
   name: string;
   category: string;
   quantity: number;
   price: number;
+}
+
+export interface Product extends ProductCore {
+  id?: number;
   _isNew?: boolean;
   _tempId?: string;
-  _touched?: Partial<Record<string, boolean>>;
-  _original?: Omit<Product, '_isNew' | '_original' | '_tempId'>;
+  _touched?: Partial<Record<keyof ProductCore, boolean>>;
+  _original?: ProductCore & { id?: number };
 }

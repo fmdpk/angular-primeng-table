@@ -1,5 +1,4 @@
 <div class="card">
-  <!-- Toolbar -->
   <div class="flex justify-between mb-3 gap-2">
     <div class="flex gap-2">
       <p-button
@@ -52,7 +51,6 @@
       [totalRecords]="totalRecords()"
       [first]="first()"
       [loading]="loading()"
-      (sortFunction)="onCustomSort($event)"
       [customSort]="true"
       dataKey="id"
       [sortMode]="'multiple'"
@@ -65,7 +63,6 @@
       (onColReorder)="onColReorder($event)"
       [tableStyle]="{ 'min-width': '50rem', 'table-layout': 'fixed' }"
     >
-      <!-- Caption -->
       <ng-template pTemplate="caption">
         <div class="flex items-center justify-between">
           <input
@@ -79,6 +76,11 @@
             <p-multiselect
               [disabled]="
                 state.hasAnyInvalidNewRow() || state.hasAnyInvalidRow()
+              "
+              [disabled]="
+                state.hasAnyInvalidNewRow() ||
+                state.hasAnyInvalidRow() ||
+                totalPendingCount() > 0
               "
               display="chip"
               [options]="columns"
@@ -99,7 +101,6 @@
         </div>
       </ng-template>
 
-      <!-- Header -->
       <ng-template pTemplate="header" let-columns>
         <tr>
           <th style="width: 46px"></th>
@@ -127,7 +128,6 @@
         </tr>
       </ng-template>
 
-      <!-- Body – existing + new rows -->
       <ng-template
         pTemplate="body"
         let-product
@@ -142,7 +142,6 @@
           <td>
             <span class="pi pi-bars" pReorderableRowHandle></span>
           </td>
-          <!-- CODE -->
           @for (item of columns; track item.field) {
             <td
               [pEditableColumn]="product"
@@ -150,7 +149,6 @@
               [ngClass]="{ 'cell-dirty': isCellDirty(product, item.field) }"
             >
               <p-cellEditor>
-                <!-- INPUT mode -->
                 <ng-template pTemplate="input">
                   <input
                     pInputText
@@ -174,7 +172,6 @@
                   }
                 </ng-template>
 
-                <!-- OUTPUT mode -->
                 <ng-template pTemplate="output">
                   <div class="flex flex-column gap-1">
                     <div
@@ -184,9 +181,8 @@
                         [ngClass]="{
                           'fix-height': isCellDirty(product, item.field),
                         }"
+                        >{{ product[item.field] }}</span
                       >
-                        {{ product[item.field] }}
-                      </span>
                       @if (isCellDirty(product, item.field)) {
                         <p-button
                           icon="pi pi-undo"
@@ -202,7 +198,6 @@
                       }
                     </div>
 
-                    <!-- show error under the value for new rows even after leaving the cell -->
                     @if (
                       state.isFieldTouched(product, item.field) &&
                         state.getFieldError(product, item.field);
@@ -227,7 +222,6 @@
             <p-popover #op appendTo="body">
               @if (product._isNew) {
                 <div class="flex items-center justify-content-center gap-1">
-                  <!-- <span class="p-tag p-tag-success">NEW</span> -->
                   <div class="flex items-center justify-content-center gap-1">
                     <p-button
                       icon="pi pi-trash"
@@ -260,6 +254,7 @@
           </td>
         </tr>
       </ng-template>
+
       <ng-template pTemplate="footer">
         <tr class="font-bold totals-row">
           <td></td>

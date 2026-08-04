@@ -1,7 +1,7 @@
 import {Component} from '@angular/core';
 import {RouterOutlet} from '@angular/router';
 import {ButtonModule} from 'primeng/button';
-import {BatchTableComponent} from './components/batch-table/batch-table.component';
+import { BatchTableComponent } from './components/batch-table/batch-table.component';
 
 @Component({
   selector: 'app-root',

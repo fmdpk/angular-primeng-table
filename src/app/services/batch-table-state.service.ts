@@ -8,12 +8,15 @@ import {
   TransferState,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Product } from '../models/product';
+import { BatchTableValidationService } from './batch-table-validation.service';
+import { buildRowKey } from '../utils/table-key.util';
+import { Product, ProductCore } from '../models/product';
 
 @Injectable({ providedIn: 'root' })
 export class BatchTableStateService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly transferState = inject(TransferState);
+  private readonly validationService = inject(BatchTableValidationService);
   private readonly dataKey = makeStateKey<Product[]>('batch-table-all-data');
 
   readonly isBrowser = isPlatformBrowser(this.platformId);
@@ -47,11 +50,7 @@ export class BatchTableStateService {
       (row) => row._isNew && !!row._tempId,
     );
 
-    if (this.first() === 0 && drafts.length) {
-      return [...drafts, ...page];
-    }
-
-    return page;
+    return this.first() === 0 && drafts.length ? [...drafts, ...page] : page;
   });
 
   readonly totalQuantity = computed(() =>
@@ -133,7 +132,7 @@ export class BatchTableStateService {
       return;
     }
 
-    const key = this.keyOf(product, field as string);
+    const key = buildRowKey(product, field as string);
     const original =
       product._original?.[field as keyof NonNullable<Product['_original']>];
     const current = value;
@@ -249,17 +248,17 @@ export class BatchTableStateService {
     this.resetTracking();
   }
 
-  undoCell(
-    product: Product,
-    field: keyof Omit<Product, '_isNew' | '_original' | '_tempId'>,
-  ): void {
+  undoCell(product: Product, field: keyof Product): void {
     if (!product._original) {
       return;
     }
 
-    const originalValue = product._original[field];
-    (product as unknown as Record<string, unknown>)[field] = originalValue;
-    const key = this.keyOf(product, field as string);
+    const originalValue = product._original[
+      field as keyof ProductCore
+    ] as Product[keyof Product];
+    (product as unknown as Record<string, unknown>)[field as string] =
+      originalValue;
+    const key = buildRowKey(product, field as string);
 
     this.pendingFieldValues.update((map) => {
       const next = new Map(map);
@@ -279,15 +278,19 @@ export class BatchTableStateService {
       return;
     }
 
-    const fields: Array<
-      keyof Omit<Product, '_isNew' | '_original' | '_tempId'>
-    > = ['code', 'name', 'category', 'quantity', 'price'];
+    const fields: Array<keyof Product> = [
+      'code',
+      'name',
+      'category',
+      'quantity',
+      'price',
+    ];
     fields.forEach((field) => {
-      (product as unknown as Record<string, unknown>)[field] =
-        product._original![field];
+      (product as unknown as Record<string, unknown>)[field as string] =
+        product._original![field as keyof ProductCore];
     });
 
-    const id = this.keyOf(product);
+    const id = buildRowKey(product);
     this.dirtyKeys.update((set) => {
       const next = new Set(set);
       [...next].forEach((key) => {
@@ -359,6 +362,77 @@ export class BatchTableStateService {
     return this.allServerData();
   }
 
+  getFieldError(product: Product, field: keyof Product): string | null {
+    return this.validationService.getFieldError(
+      product,
+      field as keyof ProductCore,
+    );
+  }
+
+  isRowValid(product: Product): boolean {
+    return this.validationService.isRowValid(product);
+  }
+
+  hasAnyInvalidRow(): boolean {
+    return this.validationService.hasAnyInvalid(this.tableValue());
+  }
+
+  hasAnyInvalidNewRow(): boolean {
+    return this.validationService.hasAnyInvalidNew(this.tableValue());
+  }
+
+  onNewRowFieldChange(product: Product): void {
+    if (product._isNew) {
+      this.products.update((list) => [...list]);
+      this.pendingNewRows.update((list) => [...list]);
+    }
+  }
+
+  markFieldTouched(product: Product, field: keyof Product): void {
+    this.validationService.markFieldTouched(
+      product,
+      field as keyof ProductCore,
+    );
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
+  }
+
+  isFieldTouched(product: Product, field: keyof Product): boolean {
+    return this.validationService.isFieldTouched(
+      product,
+      field as keyof ProductCore,
+    );
+  }
+
+  markAllRowsTouched(): void {
+    this.validationService.markAllTouched(this.tableValue());
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
+  }
+
+  markAllNewRowsTouched(): void {
+    this.validationService.markAllNewTouched(this.tableValue());
+    this.products.update((list) => [...list]);
+    this.pendingNewRows.update((list) => [...list]);
+  }
+
+  isCellDirty(product: Product, field: string): boolean {
+    const key = buildRowKey(product, field);
+    return this.dirtyKeys().has(key);
+  }
+
+  isDirty(product: Product): boolean {
+    if (product._isNew) return true;
+    const id = buildRowKey(product);
+    return Array.from(this.dirtyKeys()).some((key) =>
+      key.startsWith(id + '::'),
+    );
+  }
+
+  resetRows(): void {
+    this.totalRecords.set(this.rows);
+  }
+
   private filterPendingNewRows(): Product[] {
     const newItems = this.pendingNewRows()
       .filter(
@@ -381,111 +455,5 @@ export class BatchTableStateService {
     this.pendingFieldValues.set(new Map());
     this.pendingNewRows.set([]);
     this.dirtyKeys.set(new Set());
-  }
-
-  private keyOf(product: Product, field?: string): string {
-    const id =
-      product.id != null ? String(product.id) : `temp-${product._tempId}`;
-    return field ? `${id}::${field}` : id;
-  }
-
-  /** Returns an error message or null for a field of a new row */
-  getFieldError(product: Product, field: any): string | null {
-    // if (!product._isNew) return null;
-
-    const raw = (product as any)[field];
-    const value = raw == null ? '' : String(raw).trim();
-
-    switch (field) {
-      case 'code':
-        if (!value) return 'کد را وارد کنید';
-        break;
-      case 'name':
-        if (!value) return 'نام را وارد کنید';
-        break;
-      case 'quantity':
-        if (value === '') return 'تعداد الزامی است'; // or keep optional if you prefer
-        if (isNaN(Number(value)) || Number(value) < 0) return 'مقدار ≥ 0';
-        break;
-      case 'price':
-        if (value === '') return 'قیمت را وارد کنید'; // or keep optional
-        if (isNaN(Number(value)) || Number(value) < 0) return 'مقدار ≥ 0';
-        break;
-    }
-    return null;
-  }
-
-  /** True when the given product has no validation errors */
-  isRowValid(product: Product): boolean {
-    return (
-      !this.getFieldError(product, 'code') &&
-      !this.getFieldError(product, 'name') &&
-      !this.getFieldError(product, 'quantity') &&
-      !this.getFieldError(product, 'price')
-    );
-  }
-
-  /** True if any visible row (new or existing) is invalid */
-  hasAnyInvalidRow(): boolean {
-    return this.tableValue().some((p) => !this.isRowValid(p));
-  }
-
-  /** Keep the old name as an alias if you still use it in the template */
-  hasAnyInvalidNewRow(): boolean {
-    return this.tableValue().some((p) => p._isNew && !this.isRowValid(p));
-  }
-
-  /** Force change detection so error messages update while typing */
-  onNewRowFieldChange(product: Product): void {
-    if (product._isNew) {
-      this.products.update((list) => [...list]);
-      this.pendingNewRows.update((list) => [...list]);
-    }
-  }
-
-  /** Mark a single field as touched (new rows only) */
-  markFieldTouched(product: Product, field: string): void {
-    if (!(product as any)._touched) {
-      (product as any)._touched = {};
-    }
-    (product as any)._touched[field] = true;
-
-    this.products.update((list) => [...list]);
-    this.pendingNewRows.update((list) => [...list]);
-  }
-
-  isFieldTouched(product: Product, field: string): boolean {
-    return !!(product as any)._touched?.[field];
-  }
-
-  /** Mark every field of every row as touched */
-  markAllRowsTouched(): void {
-    this.tableValue().forEach((p) => {
-      if (!(p as any)._touched) {
-        (p as any)._touched = {};
-      }
-      ['code', 'name', 'category', 'quantity', 'price'].forEach((f) => {
-        (p as any)._touched[f] = true;
-      });
-    });
-
-    this.products.update((list) => [...list]);
-    this.pendingNewRows.update((list) => [...list]);
-  }
-
-  /** Mark every field of every new row as touched */
-  markAllNewRowsTouched(): void {
-    this.tableValue().forEach((p) => {
-      if (!p._isNew) return;
-      if (!(p as any)._touched) {
-        (p as any)._touched = {};
-      }
-      ['code', 'name', 'category', 'quantity', 'price'].forEach((f) => {
-        (p as any)._touched[f] = true;
-      });
-    });
-
-    this.products.update((list) => [...list]);
-    this.pendingNewRows.update((list) => [...list]);
   }
 }
