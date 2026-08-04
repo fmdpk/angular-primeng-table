@@ -117,10 +117,16 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   } | null>(null);
   private originalOnColumnResizeEnd?: (...args: unknown[]) => void;
 
+  /**
+   * Constructs the component and wires the initial RTL resize patch.
+   */
   constructor() {
     afterNextRender(() => this.patchRtlColumnResize());
   }
 
+  /**
+   * Initializes the component state, restores saved preferences, and starts listening for global filter changes.
+   */
   ngOnInit(): void {
     this.state.initializeData();
     this.restoreSelectedColumns();
@@ -139,6 +145,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * Restores the saved visible column selection from local storage.
+   */
   private restoreSelectedColumns(): void {
     try {
       const raw = localStorage.getItem(TABLE_COLUMNS_STORAGE_KEY);
@@ -154,6 +163,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Persists the current visible column selection to local storage.
+   */
   private saveSelectedColumns(): void {
     try {
       localStorage.setItem(
@@ -165,6 +177,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Updates the visible column selection when the user changes it.
+   */
   onSelectedColumnsChange(cols: TableColumnDefinition[]): void {
     if (!cols?.length) {
       this.selectedColumns = [...this.columns];
@@ -176,6 +191,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.saveSelectedColumns();
   }
 
+  /**
+   * Determines whether the current table is rendered in RTL mode.
+   */
   private isTableRtl(): boolean {
     const element = this.table?.el?.nativeElement as HTMLElement | undefined;
     if (!element) return false;
@@ -186,6 +204,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     );
   }
 
+  /**
+   * Adjusts the column resize behavior for RTL tables.
+   */
   private patchRtlColumnResize(): void {
     const table = this.table as Table & {
       onColumnResizeEnd?: (...args: unknown[]) => void;
@@ -217,6 +238,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     };
   }
 
+  /**
+   * Loads the requested table page while respecting pending edits and view changes.
+   */
   loadPage(event: TableLazyLoadEvent): void {
     if (!this.isBrowser) {
       return;
@@ -264,6 +288,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  /**
+   * Queues a global filter change for the table.
+   */
   onGlobalFilter(value: string): void {
     const next = value ?? '';
     this.globalFilterSubject.next({
@@ -273,6 +300,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.globalFilterValue = next;
   }
 
+  /**
+   * Applies a global filter change and reloads the table data when needed.
+   */
   private handleGlobalFilterChange(value: string, previousValue: string): void {
     const next = value ?? '';
 
@@ -319,23 +349,38 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     } as TableLazyLoadEvent);
   }
 
+  /**
+   * Resets the visible row list to the current state.
+   */
   resetRows() {
     this.state.totalRecords.set(this.state.rows);
     this.rows = this.state.rows;
   }
 
+  /**
+   * Merges pending field edits into the row data before it is displayed.
+   */
   mergePending(serverRow: Product): Product {
     return this.state.mergePending(serverRow);
   }
 
+  /**
+   * Returns whether a specific cell currently has unsaved changes.
+   */
   isCellDirty(product: Product, field: string): boolean {
     return this.state.isCellDirty(product, field);
   }
 
+  /**
+   * Returns whether a row currently has unsaved changes.
+   */
   isDirty(product: Product): boolean {
     return this.state.isDirty(product);
   }
 
+  /**
+   * Stores the latest value entered in an editable table cell.
+   */
   onCellEditComplete(event: TableEditCompleteEvent): void {
     const product = event.data as Product | undefined;
     const field = event.field as keyof Product | undefined;
@@ -350,6 +395,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.pendingNewRows.update((list) => [...list]);
   }
 
+  /**
+   * Starts adding a new draft row to the table.
+   */
   startAddRow(): void {
     if (this.state.hasAnyInvalidNewRow()) {
       this.state.markAllNewRowsTouched();
@@ -377,6 +425,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.state.startAddRow();
   }
 
+  /**
+   * Checks whether any column filters currently contain values.
+   */
   hasFilterInColumns(): boolean {
     const filters = this.table.filters;
     let hasFilter = false;
@@ -391,6 +442,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     return hasFilter;
   }
 
+  /**
+   * Saves all pending edits and new rows.
+   */
   saveBatch(done?: () => void, showConfirmMessage: boolean = true): void {
     if (this.totalPendingCount() === 0) return;
 
@@ -428,6 +482,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  /**
+   * Applies the batch save and reloads the table state.
+   */
   saveBatchAction(done?: () => void): void {
     const payload = this.state.saveBatch();
 
@@ -456,6 +513,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     done?.();
   }
 
+  /**
+   * Discards all pending changes after user confirmation.
+   */
   discardAll(): void {
     this.confirmationService.confirm({
       header: 'توجه',
@@ -475,21 +535,33 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Reverts a single edited cell to its original value.
+   */
   undoCell(product: Product, field: string): void {
     this.state.undoCell(product, field as keyof Product);
     this.products.update((list) => [...list]);
     this.pendingNewRows.update((list) => [...list]);
   }
 
+  /**
+   * Reverts all edits for a single row to their original values.
+   */
   undoRow(product: Product): void {
     this.state.undoRow(product);
     this.products.update((list) => [...list]);
   }
 
+  /**
+   * Removes a newly added draft row from the pending list.
+   */
   deleteNewRow(product: Product): void {
     this.state.deleteNewRow(product);
   }
 
+  /**
+   * Applies the pending lazy-load event after confirmation completes.
+   */
   private applyPendingLazyEvent(): void {
     if (!this.pendingLazyEvent()) return;
     const event = this.pendingLazyEvent();
@@ -499,6 +571,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.executeLoad(event!);
   }
 
+  /**
+   * Loads and transforms the table data for the current page, sort, and filter state.
+   */
   private executeLoad(event: TableLazyLoadEvent): void {
     const first = event.first ?? 0;
     const rows = event.rows ?? this.state.rows;
@@ -588,6 +663,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }, 250);
   }
 
+  /**
+   * Checks whether the active column filters changed since the last load.
+   */
   private hasFilterChanged(
     filters: Record<string, unknown> | undefined,
   ): boolean {
@@ -595,6 +673,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     return JSON.stringify(filters) !== JSON.stringify(this.filters);
   }
 
+  /**
+   * Checks whether the active sort state changed since the last load.
+   */
   private hasSortChanged(event: TableLazyLoadEvent): boolean {
     const next = event.multiSortMeta?.length
       ? event.multiSortMeta
@@ -612,6 +693,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     return next !== previousKey;
   }
 
+  /**
+   * Applies the column filter constraints to the dataset.
+   */
   private applyColumnFilters(
     data: Product[],
     filters: Record<string, unknown> | undefined,
@@ -642,6 +726,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     return result;
   }
 
+  /**
+   * Shows a confirmation dialog before changing the active view.
+   */
   private confirmBeforeViewChange(
     header: string,
     detail: string,
@@ -669,6 +756,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Captures the current sort state for later restoration.
+   */
   private captureSortState(): {
     sortField: string | undefined | null;
     sortOrder: number;
@@ -683,6 +773,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     };
   }
 
+  /**
+   * Captures the current page state for later restoration.
+   */
   capturePageState() {
     return {
       first: this.first(),
@@ -690,6 +783,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     };
   }
 
+  /**
+   * Restores the previously captured sort state.
+   */
   private restoreSortState(): void {
     const previous = this.pendingSortRestore();
     this.pendingSortRestore.set(null);
@@ -731,6 +827,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Restores the previously captured page state.
+   */
   restorePageState() {
     const previous = this.pendingPageRestore();
     this.pendingPageRestore.set(null);
@@ -743,7 +842,10 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.table.first = previous.first;
   }
 
-  onEditArrowKey(event: KeyboardEvent, product: Product, field: string): void {
+  /**
+   * Handles keyboard navigation for editable cells in RTL mode.
+   */
+  onEditArrowKey(event: KeyboardEvent): void {
     const isRtl =
       this.table?.el?.nativeElement?.getAttribute('dir') === 'rtl' ||
       getComputedStyle(this.table?.el?.nativeElement).direction === 'rtl';
@@ -790,11 +892,17 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     targetCell.click();
   }
 
+  /**
+   * Clears the table filters and resets the global filter value.
+   */
   clear(table: Table) {
     table.clear();
     this.globalFilterValue = '';
   }
 
+  /**
+   * Persists the reordered column layout after a drag-and-drop action.
+   */
   onColReorder(event: TableColumnReorderEvent): void {
     const columns = (
       event as TableColumnReorderEvent & { columns?: TableColumnDefinition[] }
@@ -835,6 +943,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     this.saveSelectedColumns();
   }
 
+  /**
+   * Cleans up subscriptions and restores the original resize handler.
+   */
   ngOnDestroy(): void {
     this.globalFilterSubscription?.unsubscribe();
 

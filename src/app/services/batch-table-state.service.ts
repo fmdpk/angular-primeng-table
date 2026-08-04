@@ -66,6 +66,9 @@ export class BatchTableStateService {
 
   private readonly allServerData = signal<Product[]>([]);
 
+  /**
+   * Initializes the service data and resets pending edit tracking.
+   */
   initializeData(): void {
     if (this.transferState.hasKey(this.dataKey)) {
       this.allServerData.set(this.transferState.get(this.dataKey, []));
@@ -92,6 +95,9 @@ export class BatchTableStateService {
     this.dirtyKeys.set(new Set());
   }
 
+  /**
+   * Stores the current page of products and paging metadata.
+   */
   setPageData(products: Product[], totalRecords: number, first: number): void {
     this.products.set(products);
     this.totalRecords.set(totalRecords);
@@ -99,6 +105,9 @@ export class BatchTableStateService {
     this.loading.set(false);
   }
 
+  /**
+   * Merges pending field values into a row before it is displayed.
+   */
   mergePending(serverRow: Product): Product {
     const row: Product = {
       ...serverRow,
@@ -123,6 +132,9 @@ export class BatchTableStateService {
     return row;
   }
 
+  /**
+   * Tracks a cell-level change and updates the dirty state.
+   */
   updateCellValue(
     product: Product,
     field: keyof Product,
@@ -158,6 +170,9 @@ export class BatchTableStateService {
     });
   }
 
+  /**
+   * Creates a new draft row for the table.
+   */
   startAddRow(): Product {
     const draft: Product = {
       code: '',
@@ -180,6 +195,9 @@ export class BatchTableStateService {
     return draft;
   }
 
+  /**
+   * Saves all pending edits and newly added rows.
+   */
   saveBatch(): { updates: Product[]; creates: Product[] } {
     const editedById = new Map<number, Product>();
 
@@ -244,10 +262,16 @@ export class BatchTableStateService {
     };
   }
 
+  /**
+   * Discards all pending edits and resets the tracking state.
+   */
   discardAll(): void {
     this.resetTracking();
   }
 
+  /**
+   * Reverts a single edited cell to its original value.
+   */
   undoCell(product: Product, field: keyof Product): void {
     if (!product._original) {
       return;
@@ -273,6 +297,9 @@ export class BatchTableStateService {
     });
   }
 
+  /**
+   * Reverts all edits for a row to their original values.
+   */
   undoRow(product: Product): void {
     if (!product._original) {
       return;
@@ -302,6 +329,9 @@ export class BatchTableStateService {
     });
   }
 
+  /**
+   * Removes a newly added draft row from the pending state.
+   */
   deleteNewRow(product: Product): void {
     if (!product._isNew || !product._tempId) {
       return;
@@ -333,6 +363,9 @@ export class BatchTableStateService {
     });
   }
 
+  /**
+   * Builds a summary of the current pending changes for the user.
+   */
   pendingMessage(): string {
     const edited = this.editedCount();
     const added = this.addedCount();
@@ -346,6 +379,9 @@ export class BatchTableStateService {
     return `شما ${added} سطر اضفه کردید که ذخیره نشده است`;
   }
 
+  /**
+   * Returns the display label for a column field.
+   */
   columnLabel(field: string): string {
     const map: Record<string, string> = {
       code: 'Code',
@@ -358,10 +394,16 @@ export class BatchTableStateService {
     return map[field] ?? field;
   }
 
+  /**
+   * Returns the full set of server data loaded into the service.
+   */
   getAllServerData(): Product[] {
     return this.allServerData();
   }
 
+  /**
+   * Returns the validation error message for a field on a product.
+   */
   getFieldError(product: Product, field: keyof Product): string | null {
     return this.validationService.getFieldError(
       product,
@@ -369,18 +411,30 @@ export class BatchTableStateService {
     );
   }
 
+  /**
+   * Determines whether a product row passes validation.
+   */
   isRowValid(product: Product): boolean {
     return this.validationService.isRowValid(product);
   }
 
+  /**
+   * Checks whether any row in the current view is invalid.
+   */
   hasAnyInvalidRow(): boolean {
     return this.validationService.hasAnyInvalid(this.tableValue());
   }
 
+  /**
+   * Checks whether any newly added row is invalid.
+   */
   hasAnyInvalidNewRow(): boolean {
     return this.validationService.hasAnyInvalidNew(this.tableValue());
   }
 
+  /**
+   * Refreshes the state after a draft row field changes.
+   */
   onNewRowFieldChange(product: Product): void {
     if (product._isNew) {
       this.products.update((list) => [...list]);
@@ -388,6 +442,9 @@ export class BatchTableStateService {
     }
   }
 
+  /**
+   * Marks a field as touched for validation feedback.
+   */
   markFieldTouched(product: Product, field: keyof Product): void {
     this.validationService.markFieldTouched(
       product,
@@ -397,6 +454,9 @@ export class BatchTableStateService {
     this.pendingNewRows.update((list) => [...list]);
   }
 
+  /**
+   * Returns whether a field has been marked as touched.
+   */
   isFieldTouched(product: Product, field: keyof Product): boolean {
     return this.validationService.isFieldTouched(
       product,
@@ -404,23 +464,35 @@ export class BatchTableStateService {
     );
   }
 
+  /**
+   * Marks every visible row as touched for validation display.
+   */
   markAllRowsTouched(): void {
     this.validationService.markAllTouched(this.tableValue());
     this.products.update((list) => [...list]);
     this.pendingNewRows.update((list) => [...list]);
   }
 
+  /**
+   * Marks every new row as touched for validation display.
+   */
   markAllNewRowsTouched(): void {
     this.validationService.markAllNewTouched(this.tableValue());
     this.products.update((list) => [...list]);
     this.pendingNewRows.update((list) => [...list]);
   }
 
+  /**
+   * Returns whether the provided cell is marked as dirty.
+   */
   isCellDirty(product: Product, field: string): boolean {
     const key = buildRowKey(product, field);
     return this.dirtyKeys().has(key);
   }
 
+  /**
+   * Returns whether the provided row has any pending dirty fields.
+   */
   isDirty(product: Product): boolean {
     if (product._isNew) return true;
     const id = buildRowKey(product);
@@ -429,10 +501,16 @@ export class BatchTableStateService {
     );
   }
 
+  /**
+   * Resets the visible row count to the configured page size.
+   */
   resetRows(): void {
     this.totalRecords.set(this.rows);
   }
 
+  /**
+   * Filters and normalizes the pending rows that should be created on save.
+   */
   private filterPendingNewRows(): Product[] {
     const newItems = this.pendingNewRows()
       .filter(
@@ -451,6 +529,9 @@ export class BatchTableStateService {
     return newItems;
   }
 
+  /**
+   * Clears the pending edit and draft tracking state.
+   */
   private resetTracking(): void {
     this.pendingFieldValues.set(new Map());
     this.pendingNewRows.set([]);

@@ -10,6 +10,9 @@ export class BatchTableValidationService {
     'price',
   ];
 
+  /**
+   * Returns the validation error message for a field on a product.
+   */
   getFieldError(product: Product, field: keyof ProductCore): string | null {
     const raw = product[field];
     const value = raw == null ? '' : String(raw).trim();
@@ -34,25 +37,40 @@ export class BatchTableValidationService {
     }
   }
 
+  /**
+   * Determines whether a product row passes validation.
+   */
   isRowValid(product: Product): boolean {
     return this.requiredFields.every(
       (field) => this.getFieldError(product, field) === null,
     );
   }
 
+  /**
+   * Checks whether any supplied rows are invalid.
+   */
   hasAnyInvalid(rows: Product[]): boolean {
     return rows.some((product) => !this.isRowValid(product));
   }
 
+  /**
+   * Checks whether any newly added rows are invalid.
+   */
   hasAnyInvalidNew(rows: Product[]): boolean {
     return rows.some((product) => product._isNew && !this.isRowValid(product));
   }
 
+  /**
+   * Marks a field as touched so validation state can be shown.
+   */
   markFieldTouched(product: Product, field: keyof ProductCore): void {
     product._touched ??= {};
     product._touched[field] = true;
   }
 
+  /**
+   * Marks every required field in each row as touched.
+   */
   markAllTouched(rows: Product[]): void {
     rows.forEach((product) => {
       product._touched ??= {};
@@ -62,6 +80,9 @@ export class BatchTableValidationService {
     });
   }
 
+  /**
+   * Marks every required field in each new row as touched.
+   */
   markAllNewTouched(rows: Product[]): void {
     rows
       .filter((product) => product._isNew)
@@ -73,6 +94,9 @@ export class BatchTableValidationService {
       });
   }
 
+  /**
+   * Returns whether a field has been marked as touched.
+   */
   isFieldTouched(product: Product, field: keyof ProductCore): boolean {
     return !!product._touched?.[field];
   }
