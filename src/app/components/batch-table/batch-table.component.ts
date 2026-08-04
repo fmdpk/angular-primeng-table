@@ -6,6 +6,7 @@ import {
   OnInit,
   signal,
   ViewChild,
+  WritableSignal,
 } from '@angular/core';
 import {
   Table,
@@ -93,7 +94,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   globalFilterValue = '';
 
   readonly columns: TableColumnDefinition[] = DEFAULT_TABLE_COLUMNS;
-  selectedColumns: TableColumnDefinition[] = [...DEFAULT_TABLE_COLUMNS];
+  selectedColumns: WritableSignal<TableColumnDefinition[]> = signal([
+    ...DEFAULT_TABLE_COLUMNS,
+  ]);
 
   private appliedSort = signal<SortEvent>({ field: undefined, order: 1 });
   private appliedMultiSortMeta = signal<
@@ -155,10 +158,12 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         ? (JSON.parse(raw) as TableColumnDefinition[])
         : null;
 
-      this.selectedColumns = resolveSelectedColumns(this.columns, savedColumns);
+      this.selectedColumns.set(
+        resolveSelectedColumns(this.columns, savedColumns),
+      );
       this.saveSelectedColumns();
     } catch {
-      this.selectedColumns = [...this.columns];
+      this.selectedColumns.set([...this.columns]);
       this.saveSelectedColumns();
     }
   }
@@ -170,7 +175,7 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     try {
       localStorage.setItem(
         TABLE_COLUMNS_STORAGE_KEY,
-        JSON.stringify(this.selectedColumns ?? []),
+        JSON.stringify(this.selectedColumns() ?? []),
       );
     } catch {
       // ignore private mode / quota issues
@@ -182,12 +187,14 @@ export class BatchTableComponent implements OnInit, OnDestroy {
    */
   onSelectedColumnsChange(cols: TableColumnDefinition[]): void {
     if (!cols?.length) {
-      this.selectedColumns = [...this.columns];
+      this.selectedColumns.set([...this.columns]);
       this.saveSelectedColumns();
       return;
     }
 
-    this.selectedColumns = reconcileSelectedColumns(this.selectedColumns, cols);
+    this.selectedColumns.set(
+      reconcileSelectedColumns(this.selectedColumns(), cols),
+    );
     this.saveSelectedColumns();
   }
 
@@ -916,7 +923,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       );
 
       if (reordered.length) {
-        this.selectedColumns = resolveSelectedColumns(this.columns, reordered);
+        this.selectedColumns.set(
+          resolveSelectedColumns(this.columns, reordered),
+        );
         this.saveSelectedColumns();
         return;
       }
@@ -930,16 +939,16 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       dragIndex === dropIndex ||
       dragIndex < 0 ||
       dropIndex < 0 ||
-      dragIndex >= this.selectedColumns.length ||
-      dropIndex >= this.selectedColumns.length
+      dragIndex >= this.selectedColumns().length ||
+      dropIndex >= this.selectedColumns().length
     ) {
       return;
     }
 
-    const next = [...this.selectedColumns];
+    const next = [...this.selectedColumns()];
     const [moved] = next.splice(dragIndex, 1);
     next.splice(dropIndex, 0, moved);
-    this.selectedColumns = next;
+    this.selectedColumns.set(next);
     this.saveSelectedColumns();
   }
 

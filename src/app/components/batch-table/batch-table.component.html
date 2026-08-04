@@ -47,7 +47,7 @@
       [lazy]="true"
       [paginator]="true"
       [rows]="rows"
-      [columns]="selectedColumns"
+      [columns]="selectedColumns()"
       [totalRecords]="totalRecords()"
       [first]="first()"
       [loading]="loading()"
@@ -258,7 +258,7 @@
       <ng-template pTemplate="footer">
         <tr class="font-bold totals-row">
           <td></td>
-          @for (col of selectedColumns; track col.field) {
+          @for (col of selectedColumns(); track col.field) {
             <td>
               @if (col.field === "quantity") {
                 {{ totalQuantity() | number }}
