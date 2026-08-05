@@ -1,14 +1,14 @@
-import {Component} from '@angular/core';
-import {RouterOutlet} from '@angular/router';
-import {ButtonModule} from 'primeng/button';
-import { BatchTableComponent } from './components/batch-table/batch-table.component';
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { ButtonModule } from 'primeng/button';
+import { ProductsTableComponent } from './components/products-table/products-table.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, ButtonModule, BatchTableComponent],
+  imports: [RouterOutlet, ButtonModule, ProductsTableComponent],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  styleUrl: './app.component.scss',
 })
 export class AppComponent {
   title = 'angular-primeng-table';

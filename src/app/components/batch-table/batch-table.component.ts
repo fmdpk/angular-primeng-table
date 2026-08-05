@@ -1,13 +1,23 @@
 import {
   afterNextRender,
+  ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
+  input,
   OnDestroy,
-  OnInit,
+  output,
   signal,
   ViewChild,
-  WritableSignal,
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MultiSelectModule } from 'primeng/multiselect';
+import { PopoverModule } from 'primeng/popover';
 import {
   Table,
   TableColumnReorderEvent,
@@ -15,35 +25,16 @@ import {
   TableLazyLoadEvent,
   TableModule,
 } from 'primeng/table';
-import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { ButtonModule } from 'primeng/button';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ConfirmationService, MessageService, SortEvent } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
-import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
 import { TooltipModule } from 'primeng/tooltip';
-import { MultiSelectModule } from 'primeng/multiselect';
-import { PopoverModule } from 'primeng/popover';
-import {
-  debounceTime,
-  distinctUntilChanged,
-  Subject,
-  Subscription,
-} from 'rxjs';
 import { RowHighlightDirective } from '../../directives/row-highlight.directive';
 import {
-  DEFAULT_TABLE_COLUMNS,
-  TABLE_COLUMNS_STORAGE_KEY,
-} from '../../constants/table-columns';
-import {
-  reconcileSelectedColumns,
-  resolveSelectedColumns,
-} from '../../utils/column-selection.util';
-import { BatchTableStateService } from '../../services/batch-table-state.service';
-import { TableColumnDefinition } from '../../models/table-column-definition';
-import { Product } from '../../models/product';
+  BatchCellEditEvent,
+  BatchSaveEvent,
+  BatchTableItem,
+  TableColumnDefinition,
+  ValidatorFn,
+} from '../../models/batch-table.model';
 
 @Component({
   selector: 'app-batch-table',
@@ -53,62 +44,89 @@ import { Product } from '../../models/product';
     FormsModule,
     TableModule,
     InputTextModule,
-    InputNumberModule,
     ButtonModule,
     ConfirmDialogModule,
     ToastModule,
     TooltipModule,
-    RowHighlightDirective,
     MultiSelectModule,
     PopoverModule,
+    RowHighlightDirective,
   ],
   providers: [ConfirmationService, MessageService],
   templateUrl: './batch-table.component.html',
   styleUrl: './batch-table.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class BatchTableComponent implements OnInit, OnDestroy {
+export class BatchTableComponent<
+  T extends Record<string, any> = any,
+> implements OnDestroy {
+  // ---------- Inputs ----------
+  /** Current page rows coming from the parent (server data, not merged). */
+  readonly value = input.required<T[]>();
+  readonly totalRecords = input<number>(0);
+  readonly loading = input<boolean>(false);
+  readonly rows = input<number>(5);
+  readonly columns = input.required<TableColumnDefinition<T>[]>();
+
+  /** Initial visible columns. If omitted, all columns are shown. */
+  readonly initialSelectedColumns = input<TableColumnDefinition<T>[] | null>(
+    null,
+  );
+
+  /** Field used to identify a row uniquely. Defaults to 'id'. */
+  readonly keyField = input<string>('id');
+
+  /** Per-field validator map. */
+  readonly validators = input<Partial<Record<string, ValidatorFn<T>>>>({});
+
+  readonly scrollHeight = input<string>('500px');
+  readonly dir = input<'rtl' | 'ltr'>('rtl');
+  readonly allowReorder = input<boolean>(true);
+  readonly showAddRow = input<boolean>(true);
+  readonly saveConfirmMessage = input<string>(
+    'آیا از ذخیره تغییرات مطمئن هستید؟',
+  );
+  readonly emptyMessage = input<string>('رکوردی یافت نشد');
+
+  // ---------- Outputs ----------
+  readonly lazyLoad = output<TableLazyLoadEvent>();
+  readonly save = output<BatchSaveEvent<T>>();
+  readonly discard = output<void>();
+  readonly cellEdit = output<BatchCellEditEvent<T>>();
+  readonly columnsReorder = output<TableColumnDefinition<T>[]>();
+  readonly selectedColumnsChange = output<TableColumnDefinition<T>[]>();
+
+  // ---------- ViewChild ----------
   @ViewChild('dt') table!: Table;
-  readonly state = inject(BatchTableStateService);
-  readonly confirmationService = inject(ConfirmationService);
-  readonly messageService = inject(MessageService);
 
-  readonly products = this.state.products;
-  readonly totalRecords = this.state.totalRecords;
-  readonly first = this.state.first;
-  readonly loading = this.state.loading;
-  readonly pendingFieldValues = this.state.pendingFieldValues;
-  readonly pendingNewRows = this.state.pendingNewRows;
-  readonly dirtyKeys = this.state.dirtyKeys;
-  readonly addedCount = this.state.addedCount;
-  readonly editedCount = this.state.editedCount;
-  readonly totalPendingCount = this.state.totalPendingCount;
-  readonly tableValue = this.state.tableValue;
-  readonly totalQuantity = this.state.totalQuantity;
-  readonly totalPrice = this.state.totalPrice;
-  rows = this.state.rows;
-  readonly isBrowser = this.state.isBrowser;
+  // ---------- Internal state ----------
+  readonly pendingFieldValues = signal<Map<string, unknown>>(new Map());
+  readonly pendingNewRows = signal<T[]>([]);
+  readonly dirtyKeys = signal<Set<string>>(new Set());
+  readonly touched = signal<Map<string, Set<string>>>(new Map());
 
+  readonly first = signal(0);
+  readonly internalLoading = signal(false);
+
+  /** Currently visible columns (mutable copy). */
+  readonly selectedColumns = signal<TableColumnDefinition<T>[]>([]);
+
+  /** Sort / filter state currently applied (mirrors last emitted event). */
   sortField: string | undefined;
   sortOrder = 1;
   filters: Record<string, unknown> = {};
   globalFilterValue = '';
 
-  readonly columns: TableColumnDefinition[] = DEFAULT_TABLE_COLUMNS;
-  selectedColumns: WritableSignal<TableColumnDefinition[]> = signal([
-    ...DEFAULT_TABLE_COLUMNS,
-  ]);
+  private augmentedCache = new Map<string, BatchTableItem<T>>();
 
-  private appliedSort = signal<SortEvent>({ field: undefined, order: 1 });
+  private readonly confirmationService = inject(ConfirmationService);
+  readonly messageService = inject(MessageService);
+
   private appliedMultiSortMeta = signal<
     { field: string; order: number }[] | null
   >(null);
   private pendingLazyEvent = signal<TableLazyLoadEvent | null>(null);
   private pendingGlobalFilter = signal<string | null>(null);
-  private readonly globalFilterSubject = new Subject<{
-    value: string;
-    previousValue: string;
-  }>();
-  private globalFilterSubscription?: Subscription;
   private pendingSortRestore = signal<{
     sortField: string | undefined | null;
     sortOrder: number;
@@ -120,150 +138,124 @@ export class BatchTableComponent implements OnInit, OnDestroy {
   } | null>(null);
   private originalOnColumnResizeEnd?: (...args: unknown[]) => void;
 
-  /**
-   * Constructs the component and wires the initial RTL resize patch.
-   */
-  constructor() {
-    afterNextRender(() => this.patchRtlColumnResize());
-  }
+  // ---------- Computed ----------
+  readonly addedCount = computed(() => this.pendingNewRows().length);
 
-  /**
-   * Initializes the component state, restores saved preferences, and starts listening for global filter changes.
-   */
-  ngOnInit(): void {
-    this.state.initializeData();
-    this.restoreSelectedColumns();
-
-    this.globalFilterSubscription = this.globalFilterSubject
-      .pipe(
-        debounceTime(500),
-        distinctUntilChanged(
-          (previous, current) =>
-            previous.value === current.value &&
-            previous.previousValue === current.previousValue,
-        ),
-      )
-      .subscribe(({ value, previousValue }) => {
-        this.handleGlobalFilterChange(value, previousValue);
-      });
-  }
-
-  /**
-   * Restores the saved visible column selection from local storage.
-   */
-  private restoreSelectedColumns(): void {
-    try {
-      const raw = localStorage.getItem(TABLE_COLUMNS_STORAGE_KEY);
-      const savedColumns = raw
-        ? (JSON.parse(raw) as TableColumnDefinition[])
-        : null;
-
-      this.selectedColumns.set(
-        resolveSelectedColumns(this.columns, savedColumns),
-      );
-      this.saveSelectedColumns();
-    } catch {
-      this.selectedColumns.set([...this.columns]);
-      this.saveSelectedColumns();
-    }
-  }
-
-  /**
-   * Persists the current visible column selection to local storage.
-   */
-  private saveSelectedColumns(): void {
-    try {
-      localStorage.setItem(
-        TABLE_COLUMNS_STORAGE_KEY,
-        JSON.stringify(this.selectedColumns() ?? []),
-      );
-    } catch {
-      // ignore private mode / quota issues
-    }
-  }
-
-  /**
-   * Updates the visible column selection when the user changes it.
-   */
-  onSelectedColumnsChange(cols: TableColumnDefinition[]): void {
-    if (!cols?.length) {
-      this.selectedColumns.set([...this.columns]);
-      this.saveSelectedColumns();
-      return;
-    }
-
-    this.selectedColumns.set(
-      reconcileSelectedColumns(this.selectedColumns(), cols),
+  readonly editedCount = computed(() => {
+    const ids = new Set(
+      Array.from(this.dirtyKeys())
+        .filter((key) => !key.startsWith('temp-'))
+        .map((key) => key.split('::')[0]),
     );
-    this.saveSelectedColumns();
-  }
+    return ids.size;
+  });
+
+  readonly totalPendingCount = computed(
+    () => this.editedCount() + this.addedCount(),
+  );
 
   /**
-   * Determines whether the current table is rendered in RTL mode.
+   * Augments the parent-provided value with `_original`, applies pending
+   * field edits, and prepends draft new rows when on the first page.
    */
-  private isTableRtl(): boolean {
-    const element = this.table?.el?.nativeElement as HTMLElement | undefined;
-    if (!element) return false;
+  readonly tableValue = computed<BatchTableItem<T>[]>(() => {
+    const serverRows = this.value();
+    const drafts = this.pendingNewRows();
+    const first = this.first();
+    const keyField = this.keyField();
 
-    return (
-      element.getAttribute('dir') === 'rtl' ||
-      getComputedStyle(element).direction === 'rtl'
-    );
-  }
+    const augmented = serverRows.map((row) => {
+      const rowKey = String((row as any)[keyField]);
 
-  /**
-   * Adjusts the column resize behavior for RTL tables.
-   */
-  private patchRtlColumnResize(): void {
-    const table = this.table as Table & {
-      onColumnResizeEnd?: (...args: unknown[]) => void;
-      resizeHelperViewChild?: { nativeElement?: HTMLElement };
-      lastResizerHelperX?: number;
-    };
-    if (!table?.onColumnResizeEnd) return;
-    if (this.originalOnColumnResizeEnd) return;
-
-    this.originalOnColumnResizeEnd = table.onColumnResizeEnd.bind(table);
-
-    table.onColumnResizeEnd = (...args: unknown[]) => {
-      if (this.isTableRtl()) {
-        const helper = table.resizeHelperViewChild?.nativeElement;
-        const startX = table.lastResizerHelperX;
-
-        if (
-          helper &&
-          Number.isFinite(startX as number) &&
-          Number.isFinite(helper.offsetLeft)
-        ) {
-          const currentLeft = helper.offsetLeft;
-          const delta = currentLeft - (startX as number);
-          helper.style.left = `${(startX as number) - delta}px`;
-        }
+      // Reuse the cached augmented row if the original server row hasn't changed
+      let augmentedRow = this.augmentedCache.get(rowKey);
+      if (!augmentedRow || augmentedRow._original !== row) {
+        augmentedRow = {
+          ...row,
+          _original: row, // Keep reference to the original server row
+        } as BatchTableItem<T>;
+        this.augmentedCache.set(rowKey, augmentedRow);
       }
 
-      return this.originalOnColumnResizeEnd?.(...args);
-    };
-  }
+      // Apply pending field values directly to the cached object
+      this.pendingFieldValues().forEach((value, key) => {
+        if (key.startsWith(`${rowKey}::`)) {
+          const field = key.split('::')[1];
+          (augmentedRow as any)[field] = value;
+        }
+      });
 
-  /**
-   * Loads the requested table page while respecting pending edits and view changes.
-   */
-  loadPage(event: TableLazyLoadEvent): void {
-    if (!this.isBrowser) {
-      return;
+      return augmentedRow;
+    });
+
+    // Clean up cache for rows that are no longer on the current page
+    const currentKeys = new Set(
+      serverRows.map((r) => String((r as any)[keyField])),
+    );
+    for (const key of this.augmentedCache.keys()) {
+      if (!currentKeys.has(key)) {
+        this.augmentedCache.delete(key);
+      }
     }
 
+    return first === 0 && drafts.length
+      ? ([...drafts, ...augmented] as BatchTableItem<T>[])
+      : augmented;
+  });
+
+  /** Numeric totals per field — generic for any numeric field. */
+  totalFor(field: string): number {
+    return this.tableValue().reduce(
+      (sum, row) => sum + (Number(row[field]) || 0),
+      0,
+    );
+  }
+
+  // ---------- Lifecycle ----------
+  constructor() {
+    afterNextRender(() => {
+      this.initSelectedColumns();
+      this.patchRtlColumnResize();
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.table && this.originalOnColumnResizeEnd) {
+      (this.table as any).onColumnResizeEnd = this.originalOnColumnResizeEnd;
+      this.originalOnColumnResizeEnd = undefined;
+    }
+  }
+
+  // ---------- Column selection ----------
+  private initSelectedColumns(): void {
+    const initial = this.initialSelectedColumns();
+    this.selectedColumns.set(
+      initial && initial.length ? [...initial] : [...this.columns()],
+    );
+  }
+
+  onSelectedColumnsChange(cols: TableColumnDefinition<T>[]): void {
+    if (!cols?.length) {
+      this.selectedColumns.set([...this.columns()]);
+    } else {
+      this.selectedColumns.set([...cols]);
+    }
+    this.selectedColumnsChange.emit(this.selectedColumns());
+  }
+
+  // ---------- Lazy load ----------
+  loadPage(event: TableLazyLoadEvent): void {
     setTimeout(() => {
       const first = event.first ?? 0;
-      const rows = event.rows ?? this.rows;
+      const rows = event.rows ?? this.rows();
       const sortChanged = this.hasSortChanged(event);
       const filterChanged = this.hasFilterChanged(event.filters);
       this.pendingPageRestore.set(this.capturePageState());
       this.pendingSortRestore.set(this.captureSortState());
       const onlyPaging = !sortChanged && !filterChanged;
 
-      if (this.state.hasAnyInvalidNewRow() || this.state.hasAnyInvalidRow()) {
-        this.state.markAllRowsTouched();
+      if (this.hasAnyInvalidNewRow() || this.hasAnyInvalidRow()) {
+        this.markAllRowsTouched();
         this.messageService.add({
           severity: 'warn',
           summary: 'توجه',
@@ -274,47 +266,63 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.state.first.set(first);
-      this.state.loading.set(true);
+      this.first.set(first);
 
       if (
         this.totalPendingCount() > 0 &&
         (sortChanged || filterChanged || onlyPaging)
       ) {
         this.pendingLazyEvent.set(event);
-
         this.confirmBeforeViewChange(
           'توجه',
-          `قبل از هر اقدامی باید تغییرات ذخیره شود`,
+          'قبل از هر اقدامی باید تغییرات ذخیره شود',
           () => this.applyPendingLazyEvent(),
         );
         return;
       }
 
-      this.executeLoad(event);
+      this.emitLazyLoad(event);
     }, 0);
   }
 
-  /**
-   * Queues a global filter change for the table.
-   */
-  onGlobalFilter(value: string): void {
-    const next = value ?? '';
-    this.globalFilterSubject.next({
-      value: next,
-      previousValue: this.globalFilterValue,
-    });
-    this.globalFilterValue = next;
+  private emitLazyLoad(event: TableLazyLoadEvent): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? this.rows();
+    this.first.set(first);
+    this.sortField = event.sortField as string | undefined;
+    this.sortOrder = event.sortOrder ?? 1;
+    this.filters = (event.filters as Record<string, unknown>) ?? {};
+
+    if (event.multiSortMeta?.length) {
+      this.appliedMultiSortMeta.set(
+        event.multiSortMeta.map((m) => ({ field: m.field!, order: m.order! })),
+      );
+    } else if (event.sortField) {
+      this.appliedMultiSortMeta.set([
+        { field: event.sortField as string, order: event.sortOrder ?? 1 },
+      ]);
+    } else {
+      this.appliedMultiSortMeta.set(null);
+    }
+
+    this.lazyLoad.emit(event);
   }
 
-  /**
-   * Applies a global filter change and reloads the table data when needed.
-   */
-  private handleGlobalFilterChange(value: string, previousValue: string): void {
-    const next = value ?? '';
+  // ---------- Global filter ----------
+  private globalFilterTimeout?: ReturnType<typeof setTimeout>;
+  onGlobalFilter(value: string): void {
+    clearTimeout(this.globalFilterTimeout);
+    const previous = this.globalFilterValue;
+    this.globalFilterValue = value ?? '';
 
-    this.state.markAllRowsTouched();
-    if (this.state.hasAnyInvalidNewRow() || this.state.hasAnyInvalidRow()) {
+    this.globalFilterTimeout = setTimeout(() => {
+      this.handleGlobalFilterChange(this.globalFilterValue, previous);
+    }, 500);
+  }
+
+  private handleGlobalFilterChange(value: string, previousValue: string): void {
+    this.markAllRowsTouched();
+    if (this.hasAnyInvalidNewRow() || this.hasAnyInvalidRow()) {
       this.messageService.add({
         severity: 'warn',
         summary: 'توجه',
@@ -323,18 +331,18 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.totalPendingCount() > 0 && next !== previousValue) {
-      this.pendingGlobalFilter.set(next);
+    if (this.totalPendingCount() > 0 && value !== previousValue) {
+      this.pendingGlobalFilter.set(value);
       this.confirmBeforeViewChange(
         'توجه',
         'تغییرات را قبل از جست و جو ذخیره کنید',
         () => {
           this.globalFilterValue = this.pendingGlobalFilter() ?? '';
           this.pendingGlobalFilter.set(null);
-          this.resetRows();
-          this.loadPage({
+          this.first.set(0);
+          this.emitLazyLoad({
             first: 0,
-            rows: this.rows,
+            rows: this.rows(),
             sortField: this.sortField,
             sortOrder: this.sortOrder,
             filters: this.filters,
@@ -345,10 +353,10 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.globalFilterValue = next;
-    this.loadPage({
+    this.first.set(0);
+    this.emitLazyLoad({
       first: 0,
-      rows: this.rows,
+      rows: this.rows(),
       sortField: this.sortField,
       sortOrder: this.sortOrder,
       filters: this.filters,
@@ -356,58 +364,56 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     } as TableLazyLoadEvent);
   }
 
-  /**
-   * Resets the visible row list to the current state.
-   */
-  resetRows() {
-    this.state.totalRecords.set(this.state.rows);
-    this.rows = this.state.rows;
-  }
-
-  /**
-   * Merges pending field edits into the row data before it is displayed.
-   */
-  mergePending(serverRow: Product): Product {
-    return this.state.mergePending(serverRow);
-  }
-
-  /**
-   * Returns whether a specific cell currently has unsaved changes.
-   */
-  isCellDirty(product: Product, field: string): boolean {
-    return this.state.isCellDirty(product, field);
-  }
-
-  /**
-   * Returns whether a row currently has unsaved changes.
-   */
-  isDirty(product: Product): boolean {
-    return this.state.isDirty(product);
-  }
-
-  /**
-   * Stores the latest value entered in an editable table cell.
-   */
+  // ---------- Cell editing ----------
   onCellEditComplete(event: TableEditCompleteEvent): void {
-    const product = event.data as Product | undefined;
-    const field = event.field as keyof Product | undefined;
-    if (!product || !field) return;
+    const row = event.data as BatchTableItem<T> | undefined;
+    const field = event.field as string | undefined;
+    if (!row || !field) return;
 
-    if (product._isNew) {
-      this.state.markFieldTouched(product, field);
+    if (row._isNew) {
+      this.markFieldTouched(row, field);
     }
 
-    this.state.updateCellValue(product, field, product[field]);
-    this.products.update((list) => [...list]);
-    this.pendingNewRows.update((list) => [...list]);
+    this.updateCellValue(row, field, (row as any)[field]);
+
+    this.cellEdit.emit({
+      row: row as T,
+      field,
+      value: (row as any)[field],
+    });
   }
 
-  /**
-   * Starts adding a new draft row to the table.
-   */
+  private updateCellValue(
+    row: BatchTableItem<T>,
+    field: string,
+    value: unknown,
+  ): void {
+    if (field === '_original' || field === '_isNew' || field === '_tempId') {
+      return;
+    }
+
+    const key = this.buildRowKey(row, field);
+    const original = row._original ? (row._original as any)[field] : undefined;
+
+    this.pendingFieldValues.update((map) => {
+      const next = new Map(map);
+      if (value !== original) next.set(key, value);
+      else next.delete(key);
+      return next;
+    });
+
+    this.dirtyKeys.update((set) => {
+      const next = new Set(set);
+      if (value !== original) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }
+
+  // ---------- Add row ----------
   startAddRow(): void {
-    if (this.state.hasAnyInvalidNewRow()) {
-      this.state.markAllNewRowsTouched();
+    if (this.hasAnyInvalidNewRow()) {
+      this.markAllNewRowsTouched();
       this.messageService.add({
         severity: 'warn',
         summary: 'توجه',
@@ -417,7 +423,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }
 
     if (this.globalFilterValue.length || this.hasFilterInColumns()) {
-      this.state.markAllNewRowsTouched();
       this.messageService.add({
         severity: 'warn',
         summary: 'توجه',
@@ -427,37 +432,34 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     }
 
     if (this.first() !== 0) {
-      this.loadPage({ first: 0, rows: this.rows });
-    }
-    this.state.startAddRow();
-  }
-
-  /**
-   * Checks whether any column filters currently contain values.
-   */
-  hasFilterInColumns(): boolean {
-    const filters = this.table.filters;
-    let hasFilter = false;
-    for (const field in filters) {
-      if (Object.hasOwn(filters, field) && Array.isArray(filters[field])) {
-        filters[field].forEach((element) => {
-          hasFilter = !!element.value;
-        });
-      }
+      this.first.set(0);
+      this.emitLazyLoad({ first: 0, rows: this.rows() });
     }
 
-    return hasFilter;
+    const draft = {
+      _isNew: true,
+      _tempId:
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `temp-${Date.now()}-${Math.random()}`,
+    } as BatchTableItem<T>;
+
+    // Initialize empty values for every column so ngModel has something to bind.
+    this.columns().forEach((col) => {
+      (draft as any)[col.field] = col.type === 'number' ? 1 : '';
+    });
+    draft._original = { ...(draft as any) };
+
+    this.pendingNewRows.update((rows) => [draft as T, ...rows]);
   }
 
-  /**
-   * Saves all pending edits and new rows.
-   */
-  saveBatch(done?: () => void, showConfirmMessage: boolean = true): void {
+  // ---------- Save / Discard ----------
+  saveBatch(): void {
     if (this.totalPendingCount() === 0) return;
 
     setTimeout(() => {
-      if (this.state.hasAnyInvalidNewRow() || this.state.hasAnyInvalidRow()) {
-        this.state.markAllRowsTouched();
+      if (this.hasAnyInvalidNewRow() || this.hasAnyInvalidRow()) {
+        this.markAllRowsTouched();
         this.messageService.add({
           severity: 'warn',
           summary: 'توجه',
@@ -467,62 +469,80 @@ export class BatchTableComponent implements OnInit, OnDestroy {
         return;
       }
 
-      if (showConfirmMessage) {
-        this.confirmationService.confirm({
-          message: `ذخیره سازی ${this.addedCount()} سطر اضافه شده و ${this.editedCount()} تغییر انجام شده؟`,
-          header: 'ذخیره تغییرات',
-          acceptLabel: 'ذخیره',
-          closable: false,
-          closeOnEscape: false,
-          rejectLabel: 'لغو',
-          rejectButtonProps: {
-            severity: 'secondary',
-            outlined: true,
-          },
-          icon: 'pi pi-exclamation-triangle',
-          accept: () => this.saveBatchAction(done),
-        });
-        return;
-      }
-
-      this.saveBatchAction(done);
+      this.confirmationService.confirm({
+        message: this.saveConfirmMessage(),
+        header: 'ذخیره تغییرات',
+        acceptLabel: 'ذخیره',
+        rejectLabel: 'لغو',
+        closable: false,
+        closeOnEscape: false,
+        rejectButtonProps: { severity: 'secondary', outlined: true },
+        icon: 'pi pi-exclamation-triangle',
+        accept: () => {
+          this.emitSave();
+        },
+      });
     }, 0);
   }
 
-  /**
-   * Applies the batch save and reloads the table state.
-   */
-  saveBatchAction(done?: () => void): void {
-    const payload = this.state.saveBatch();
+  private emitSave(): void {
+    const updates = this.collectUpdates();
+    const creates = this.collectCreates();
 
-    this.messageService.add({
-      severity: 'success',
-      summary: 'ذخیره شد',
-      detail: 'با موفقیت انجام شد',
+    this.save.emit({
+      updates,
+      creates,
+      done: (success: boolean) => {
+        if (success) {
+          this.resetTracking();
+          this.messageService.add({
+            severity: 'success',
+            summary: 'ذخیره شد',
+            detail: 'با موفقیت انجام شد',
+          });
+        } else {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'خطا',
+            detail: 'ذخیره سازی ناموفق بود',
+          });
+        }
+      },
     });
-
-    const multiSortMeta = this.table?.multiSortMeta?.length
-      ? this.table.multiSortMeta.map((meta) => ({ ...meta }))
-      : undefined;
-
-    this.pendingPageRestore.set(null);
-    this.state.resetRows();
-
-    this.loadPage({
-      first: this.first(),
-      rows: this.state.rows,
-      sortField: this.table?.sortField ?? this.sortField,
-      sortOrder: this.table?.sortOrder ?? this.sortOrder,
-      filters: this.filters,
-      globalFilter: this.globalFilterValue,
-      multiSortMeta,
-    } as TableLazyLoadEvent);
-    done?.();
   }
 
-  /**
-   * Discards all pending changes after user confirmation.
-   */
+  private collectUpdates(): T[] {
+    const result = new Map<string, T>();
+    const keyField = this.keyField();
+
+    this.pendingFieldValues().forEach((value, key) => {
+      if (key.startsWith('temp-')) return;
+      const [idStr, field] = key.split('::');
+      if (!idStr || !field) return;
+
+      const existing = Array.from(result.keys()).find((k) => k === idStr);
+      let row = existing ? result.get(existing!) : undefined;
+      if (!row) {
+        const serverRow = this.value().find(
+          (r) => String((r as any)[keyField]) === idStr,
+        );
+        if (!serverRow) return;
+        row = { ...serverRow };
+        result.set(idStr, row);
+      }
+      (row as any)[field] = value;
+    });
+
+    return Array.from(result.values());
+  }
+
+  private collectCreates(): T[] {
+    return this.pendingNewRows().map((row, index) => {
+      const { _isNew, _tempId, _original, ...core } = row as any;
+      return { ...core } as T;
+    });
+  }
+
   discardAll(): void {
     this.confirmationService.confirm({
       header: 'توجه',
@@ -535,328 +555,247 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       acceptButtonStyleClass: 'p-button-success',
       rejectButtonStyleClass: 'p-button-danger p-button-outlined',
       accept: () => {
-        this.state.discardAll();
-        this.state.resetRows();
-        this.loadPage({ first: this.first(), rows: this.state.rows });
+        this.resetTracking();
+        this.discard.emit();
+        this.emitLazyLoad({ first: this.first(), rows: this.rows() });
       },
     });
   }
 
-  /**
-   * Reverts a single edited cell to its original value.
-   */
-  undoCell(product: Product, field: string): void {
-    this.state.undoCell(product, field as keyof Product);
-    this.products.update((list) => [...list]);
-    this.pendingNewRows.update((list) => [...list]);
+  // ---------- Undo ----------
+  undoCell(row: BatchTableItem<T>, field: string): void {
+    if (!row._original) return;
+    (row as any)[field] = (row._original as any)[field];
+    const key = this.buildRowKey(row, field);
+
+    this.pendingFieldValues.update((map) => {
+      const next = new Map(map);
+      next.delete(key);
+      return next;
+    });
+    this.dirtyKeys.update((set) => {
+      const next = new Set(set);
+      next.delete(key);
+      return next;
+    });
   }
 
-  /**
-   * Reverts all edits for a single row to their original values.
-   */
-  undoRow(product: Product): void {
-    this.state.undoRow(product);
-    this.products.update((list) => [...list]);
+  undoRow(row: BatchTableItem<T>): void {
+    if (!row._original) return;
+    this.columns().forEach((col) => {
+      (row as any)[col.field] = (row._original as any)[col.field];
+    });
+    const id = this.buildRowKey(row);
+    this.dirtyKeys.update((set) => {
+      const next = new Set(set);
+      Array.from(next).forEach((key) => {
+        if (key.startsWith(id + '::')) next.delete(key);
+      });
+      return next;
+    });
+    this.pendingFieldValues.update((map) => {
+      const next = new Map(map);
+      Array.from(next.keys()).forEach((key) => {
+        if (key.startsWith(id + '::')) next.delete(key);
+      });
+      return next;
+    });
   }
 
-  /**
-   * Removes a newly added draft row from the pending list.
-   */
-  deleteNewRow(product: Product): void {
-    this.state.deleteNewRow(product);
+  deleteNewRow(row: BatchTableItem<T>): void {
+    if (!row._isNew || !row._tempId) return;
+    this.pendingNewRows.update((rows) =>
+      rows.filter((r) => (r as any)._tempId !== row._tempId),
+    );
+
+    const id = `temp-${row._tempId}`;
+    this.dirtyKeys.update((set) => {
+      const next = new Set(set);
+      Array.from(next).forEach((key) => {
+        if (key.startsWith(id + '::') || key === id) next.delete(key);
+      });
+      return next;
+    });
+    this.pendingFieldValues.update((map) => {
+      const next = new Map(map);
+      Array.from(next.keys()).forEach((key) => {
+        if (key.startsWith(id + '::')) next.delete(key);
+      });
+      return next;
+    });
   }
 
-  /**
-   * Applies the pending lazy-load event after confirmation completes.
-   */
-  private applyPendingLazyEvent(): void {
-    if (!this.pendingLazyEvent()) return;
-    const event = this.pendingLazyEvent();
-    this.pendingLazyEvent.set(null);
-    this.pendingSortRestore.set(null);
-    this.pendingPageRestore.set(null);
-    this.executeLoad(event!);
+  // ---------- Validation ----------
+  getFieldError(row: BatchTableItem<T>, field: string): string | null {
+    const validator = this.validators()[field];
+    if (!validator) return null;
+    return validator((row as any)[field], row as T);
   }
 
-  /**
-   * Loads and transforms the table data for the current page, sort, and filter state.
-   */
-  private executeLoad(event: TableLazyLoadEvent): void {
-    const first = event.first ?? 0;
-    const rows = event.rows ?? this.state.rows;
-
-    this.first.set(first);
-    this.sortField = event.sortField as string | undefined;
-    this.sortOrder = event.sortOrder ?? 1;
-    this.filters = (event.filters as Record<string, unknown>) ?? {};
-
-    this.loading.set(true);
-
-    window.setTimeout(() => {
-      let data = [...this.state.getAllServerData()];
-
-      const global = (event.globalFilter as string) || this.globalFilterValue;
-      if (global?.trim()) {
-        const query = global.trim().toLowerCase();
-        data = data.filter((product) =>
-          [
-            product.code,
-            product.name,
-            product.category,
-            String(product.quantity),
-            String(product.price),
-          ].some((value) => value?.toLowerCase().includes(query)),
-        );
-      }
-
-      data = this.applyColumnFilters(data, event.filters);
-
-      const multiSortMeta = event.multiSortMeta?.length
-        ? event.multiSortMeta
-        : event.sortField
-          ? [{ field: event.sortField, order: event.sortOrder ?? 1 }]
-          : [];
-
-      if (multiSortMeta.length) {
-        data = data.sort((left, right) => {
-          for (const meta of multiSortMeta) {
-            const field = meta.field as keyof Product;
-            const order = meta.order === -1 ? -1 : 1;
-            const leftValue = left[field] as number | string | undefined;
-            const rightValue = right[field] as number | string | undefined;
-
-            if (leftValue == null && rightValue == null) continue;
-            if (leftValue == null) return -1 * order;
-            if (rightValue == null) return 1 * order;
-
-            const comparison =
-              typeof leftValue === 'string' && typeof rightValue === 'string'
-                ? leftValue.localeCompare(rightValue)
-                : leftValue < rightValue
-                  ? -1
-                  : leftValue > rightValue
-                    ? 1
-                    : 0;
-
-            if (comparison !== 0) {
-              return comparison * order;
-            }
-          }
-
-          return 0;
-        });
-      }
-
-      const slice = data
-        .slice(first, first + rows)
-        .map((product) => this.mergePending({ ...product }));
-
-      if (event.multiSortMeta?.length) {
-        this.appliedMultiSortMeta.set(
-          event.multiSortMeta.map((meta) => ({
-            field: meta.field!,
-            order: meta.order!,
-          })),
-        );
-      } else if (event.sortField) {
-        this.appliedMultiSortMeta.set([
-          { field: event.sortField as string, order: event.sortOrder ?? 1 },
-        ]);
-      } else {
-        this.appliedMultiSortMeta.set(null);
-      }
-
-      this.state.setPageData(slice, data.length, first);
-    }, 250);
+  isRowValid(row: BatchTableItem<T>): boolean {
+    return this.columns().every(
+      (col) => this.getFieldError(row, col.field) === null,
+    );
   }
 
-  /**
-   * Checks whether the active column filters changed since the last load.
-   */
-  private hasFilterChanged(
-    filters: Record<string, unknown> | undefined,
-  ): boolean {
-    if (!filters) return false;
-    return JSON.stringify(filters) !== JSON.stringify(this.filters);
+  hasAnyInvalidRow(): boolean {
+    return this.tableValue().some((r) => !r._isNew && !this.isRowValid(r));
   }
 
-  /**
-   * Checks whether the active sort state changed since the last load.
-   */
-  private hasSortChanged(event: TableLazyLoadEvent): boolean {
-    const next = event.multiSortMeta?.length
-      ? event.multiSortMeta
-          .map((meta) => `${meta.field}:${meta.order}`)
-          .join('|')
-      : event.sortField
-        ? `${event.sortField}:${event.sortOrder ?? 1}`
-        : '';
-
-    const previous = this.appliedMultiSortMeta();
-    const previousKey = previous?.length
-      ? previous.map((meta) => `${meta.field}:${meta.order}`).join('|')
-      : '';
-
-    return next !== previousKey;
+  hasAnyInvalidNewRow(): boolean {
+    return this.tableValue().some((r) => r._isNew && !this.isRowValid(r));
   }
 
-  /**
-   * Applies the column filter constraints to the dataset.
-   */
-  private applyColumnFilters(
-    data: Product[],
-    filters: Record<string, unknown> | undefined,
-  ): Product[] {
-    if (!filters) return data;
+  markFieldTouched(row: BatchTableItem<T>, field: string): void {
+    const rowKey = this.buildRowKey(row);
+    this.touched.update((map) => {
+      const next = new Map(map);
+      const set = next.get(rowKey) ?? new Set<string>();
+      set.add(field);
+      next.set(rowKey, set);
+      return next;
+    });
+  }
 
-    let result = data;
+  isFieldTouched(row: BatchTableItem<T>, field: string): boolean {
+    const rowKey = this.buildRowKey(row);
+    return !!this.touched().get(rowKey)?.has(field);
+  }
 
-    Object.keys(filters).forEach((field) => {
-      if (field === 'global') return;
-      const meta = filters[field];
-      const constraints = Array.isArray(meta) ? meta : [meta];
-
-      constraints.forEach((constraint: unknown) => {
-        if (!constraint || typeof constraint !== 'object') return;
-        const value = (constraint as { value?: unknown }).value;
-        if (value == null || value === '') return;
-        const normalized = String(value).toLowerCase();
-        result = result.filter((row) => {
-          const cell = String(
-            (row as unknown as Record<string, unknown>)[field] ?? '',
-          ).toLowerCase();
-          return cell.includes(normalized);
-        });
+  markAllRowsTouched(): void {
+    this.tableValue().forEach((row) => {
+      this.columns().forEach((col) => {
+        this.markFieldTouched(row, col.field);
       });
     });
-
-    return result;
   }
 
-  /**
-   * Shows a confirmation dialog before changing the active view.
-   */
-  private confirmBeforeViewChange(
-    header: string,
-    detail: string,
-    onContinue: (saved: boolean) => void,
-  ): void {
-    this.confirmationService.confirm({
-      header,
-      message: `${this.state.pendingMessage()} ${detail}`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'ادامه',
-      rejectLabel: 'لغو',
-      closable: false,
-      closeOnEscape: false,
-      acceptButtonStyleClass: 'p-button-success',
-      rejectButtonStyleClass: 'p-button-danger p-button-outlined',
-      accept: () => {
-        this.saveBatch(() => onContinue(true), false);
-      },
-      reject: () => {
-        this.pendingLazyEvent.set(null);
-        this.loading.set(false);
-        this.restoreSortState();
-        this.restorePageState();
-      },
-    });
+  markAllNewRowsTouched(): void {
+    this.tableValue()
+      .filter((r) => r._isNew)
+      .forEach((row) => {
+        this.columns().forEach((col) => {
+          this.markFieldTouched(row, col.field);
+        });
+      });
   }
 
-  /**
-   * Captures the current sort state for later restoration.
-   */
-  private captureSortState(): {
-    sortField: string | undefined | null;
-    sortOrder: number;
-    multiSortMeta: { field: string; order: number }[] | null;
-  } {
-    return {
-      sortField: this.sortField,
-      sortOrder: this.sortOrder,
-      multiSortMeta: this.appliedMultiSortMeta()
-        ? this.appliedMultiSortMeta()!.map((meta) => ({ ...meta }))
-        : null,
-    };
+  // ---------- Dirty helpers ----------
+  isCellDirty(row: BatchTableItem<T>, field: string): boolean {
+    return this.dirtyKeys().has(this.buildRowKey(row, field));
   }
 
-  /**
-   * Captures the current page state for later restoration.
-   */
-  capturePageState() {
-    return {
-      first: this.first(),
-      rows: this.rows,
-    };
+  isDirty(row: BatchTableItem<T>): boolean {
+    if (row._isNew) return true;
+    const id = this.buildRowKey(row);
+    return Array.from(this.dirtyKeys()).some((k) => k.startsWith(id + '::'));
   }
 
-  /**
-   * Restores the previously captured sort state.
-   */
-  private restoreSortState(): void {
-    const previous = this.pendingSortRestore();
-    this.pendingSortRestore.set(null);
+  private buildRowKey(row: BatchTableItem<T>, field?: string): string {
+    const base = row._isNew
+      ? `temp-${row._tempId}`
+      : String((row as any)[this.keyField()] ?? '');
+    return field ? `${base}::${field}` : base;
+  }
 
-    if (!previous) {
-      return;
-    }
+  private resetTracking(): void {
+    this.pendingFieldValues.set(new Map());
+    this.pendingNewRows.set([]);
+    this.dirtyKeys.set(new Set());
+    this.touched.set(new Map());
 
-    this.sortField = previous.sortField ?? undefined;
-    this.sortOrder = previous.sortOrder;
-    this.appliedMultiSortMeta.set(
-      previous.multiSortMeta
-        ? previous.multiSortMeta.map((meta) => ({ ...meta }))
-        : null,
-    );
-    this.appliedSort.set({
-      field: previous.sortField ?? undefined,
-      order: previous.sortOrder,
-    });
+    this.augmentedCache.clear();
+  }
 
-    if (this.table) {
-      const restoredMultiSortMeta = previous.multiSortMeta
-        ? previous.multiSortMeta.map((meta) => ({ ...meta }))
-        : null;
+  /** Public method the parent can call to forcibly reset pending state. */
+  clearPending(): void {
+    this.resetTracking();
+  }
 
-      this.table.sortField = previous.sortField ?? null;
-      this.table.sortOrder = previous.sortOrder;
-      this.table.multiSortMeta = restoredMultiSortMeta;
-
-      if (this.table.sortMode === 'multiple') {
-        this.table.tableService.onSort(restoredMultiSortMeta);
-      } else {
-        this.table.tableService.onSort(
-          previous.sortField
-            ? { field: previous.sortField, order: previous.sortOrder }
-            : null,
-        );
+  // ---------- Filters in columns ----------
+  hasFilterInColumns(): boolean {
+    const filters = this.table?.filters ?? {};
+    let flag = false;
+    for (const field in filters) {
+      if (
+        Object.hasOwn(filters, field) &&
+        Array.isArray(filters[field]) &&
+        !flag
+      ) {
+        filters[field].forEach((element: any) => {
+          if (element?.value) flag = true;
+        });
       }
     }
+    return flag;
   }
 
-  /**
-   * Restores the previously captured page state.
-   */
-  restorePageState() {
-    const previous = this.pendingPageRestore();
-    this.pendingPageRestore.set(null);
-    if (!previous) {
+  // ---------- TrackBy ----------
+  // Use an arrow function to bind 'this' context correctly
+  trackByFn = (index: number, row: any): any => {
+    if (row?._isNew) return row._tempId;
+    return row?.[this.keyField()];
+  };
+
+  clear(table: Table) {
+    table.clear();
+    this.globalFilterValue = '';
+  }
+
+  // ---------- Column reorder ----------
+  onColReorder(event: TableColumnReorderEvent): void {
+    const dragIndex = event.dragIndex;
+    const dropIndex = event.dropIndex;
+    if (dragIndex == null || dropIndex == null || dragIndex === dropIndex) {
       return;
     }
-    this.first.set(previous.first);
-    this.state.rows = previous.rows;
-    this.table.rows = previous.rows;
-    this.table.first = previous.first;
+    const next = [...this.selectedColumns()];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(dropIndex, 0, moved);
+    this.selectedColumns.set(next);
+    this.columnsReorder.emit(next);
   }
 
-  /**
-   * Handles keyboard navigation for editable cells in RTL mode.
-   */
-  onEditArrowKey(event: KeyboardEvent): void {
-    const isRtl =
-      this.table?.el?.nativeElement?.getAttribute('dir') === 'rtl' ||
-      getComputedStyle(this.table?.el?.nativeElement).direction === 'rtl';
+  // ---------- RTL resize patch ----------
+  private isTableRtl(): boolean {
+    const el = this.table?.el?.nativeElement as HTMLElement | undefined;
+    if (!el) return false;
+    return (
+      el.getAttribute('dir') === 'rtl' ||
+      getComputedStyle(el).direction === 'rtl'
+    );
+  }
 
+  private patchRtlColumnResize(): void {
+    const table = this.table as Table & {
+      onColumnResizeEnd?: (...args: unknown[]) => void;
+      resizeHelperViewChild?: { nativeElement?: HTMLElement };
+      lastResizerHelperX?: number;
+    };
+    if (!table?.onColumnResizeEnd) return;
+    if (this.originalOnColumnResizeEnd) return;
+
+    this.originalOnColumnResizeEnd = table.onColumnResizeEnd.bind(table);
+    table.onColumnResizeEnd = (...args: unknown[]) => {
+      if (this.isTableRtl()) {
+        const helper = table.resizeHelperViewChild?.nativeElement;
+        const startX = table.lastResizerHelperX;
+        if (
+          helper &&
+          Number.isFinite(startX as number) &&
+          Number.isFinite(helper.offsetLeft)
+        ) {
+          const delta = helper.offsetLeft - (startX as number);
+          helper.style.left = `${(startX as number) - delta}px`;
+        }
+      }
+      return this.originalOnColumnResizeEnd?.(...args);
+    };
+  }
+
+  // ---------- Arrow key navigation ----------
+  onEditArrowKey(event: KeyboardEvent): void {
+    const isRtl = this.dir() === 'rtl';
     if (!isRtl) return;
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
 
@@ -866,7 +805,6 @@ export class BatchTableComponent implements OnInit, OnDestroy {
 
     const currentTd = (event.target as HTMLElement).closest('td');
     if (!currentTd) return;
-
     const row = currentTd.parentElement as HTMLTableRowElement;
     if (!row) return;
 
@@ -885,84 +823,140 @@ export class BatchTableComponent implements OnInit, OnDestroy {
     const currentIndex = cells.indexOf(currentTd as HTMLElement);
     if (currentIndex === -1) return;
 
-    let targetIndex: number;
-    if (event.key === 'ArrowRight') {
-      targetIndex = currentIndex - 1;
-    } else {
-      targetIndex = currentIndex + 1;
-    }
-
+    const targetIndex =
+      event.key === 'ArrowRight' ? currentIndex - 1 : currentIndex + 1;
     if (targetIndex < 0 || targetIndex >= cells.length) return;
 
-    const targetCell = cells[targetIndex];
     (event.target as HTMLElement).blur();
-    targetCell.click();
+    cells[targetIndex].click();
   }
 
-  /**
-   * Clears the table filters and resets the global filter value.
-   */
-  clear(table: Table) {
-    table.clear();
-    this.globalFilterValue = '';
+  // ---------- Sort / page restore ----------
+  private hasFilterChanged(
+    filters: Record<string, unknown> | undefined,
+  ): boolean {
+    if (!filters) return false;
+    return JSON.stringify(filters) !== JSON.stringify(this.filters);
   }
 
-  /**
-   * Persists the reordered column layout after a drag-and-drop action.
-   */
-  onColReorder(event: TableColumnReorderEvent): void {
-    const columns = (
-      event as TableColumnReorderEvent & { columns?: TableColumnDefinition[] }
-    ).columns;
+  private hasSortChanged(event: TableLazyLoadEvent): boolean {
+    const next = event.multiSortMeta?.length
+      ? event.multiSortMeta.map((m) => `${m.field}:${m.order}`).join('|')
+      : event.sortField
+        ? `${event.sortField}:${event.sortOrder ?? 1}`
+        : '';
 
-    if (Array.isArray(columns) && columns.length) {
-      const reordered = columns.filter((column) =>
-        this.columns.some(
-          (availableColumn) => availableColumn.field === column.field,
-        ),
-      );
+    const previous = this.appliedMultiSortMeta();
+    const previousKey = previous?.length
+      ? previous.map((m) => `${m.field}:${m.order}`).join('|')
+      : '';
 
-      if (reordered.length) {
-        this.selectedColumns.set(
-          resolveSelectedColumns(this.columns, reordered),
+    return next !== previousKey;
+  }
+
+  private captureSortState() {
+    return {
+      sortField: this.sortField,
+      sortOrder: this.sortOrder,
+      multiSortMeta: this.appliedMultiSortMeta()
+        ? this.appliedMultiSortMeta()!.map((m) => ({ ...m }))
+        : null,
+    };
+  }
+
+  capturePageState() {
+    return { first: this.first(), rows: this.rows() };
+  }
+
+  private restoreSortState(): void {
+    const previous = this.pendingSortRestore();
+    this.pendingSortRestore.set(null);
+    if (!previous) return;
+
+    this.sortField = previous.sortField ?? undefined;
+    this.sortOrder = previous.sortOrder;
+    this.appliedMultiSortMeta.set(
+      previous.multiSortMeta
+        ? previous.multiSortMeta.map((m) => ({ ...m }))
+        : null,
+    );
+
+    if (this.table) {
+      const meta = previous.multiSortMeta
+        ? previous.multiSortMeta.map((m) => ({ ...m }))
+        : null;
+      this.table.sortField = previous.sortField ?? null;
+      this.table.sortOrder = previous.sortOrder;
+      this.table.multiSortMeta = meta;
+      if (this.table.sortMode === 'multiple') {
+        this.table.tableService.onSort(meta);
+      } else {
+        this.table.tableService.onSort(
+          previous.sortField
+            ? { field: previous.sortField, order: previous.sortOrder }
+            : null,
         );
-        this.saveSelectedColumns();
-        return;
       }
     }
-
-    const dragIndex = event.dragIndex;
-    const dropIndex = event.dropIndex;
-    if (
-      dragIndex == null ||
-      dropIndex == null ||
-      dragIndex === dropIndex ||
-      dragIndex < 0 ||
-      dropIndex < 0 ||
-      dragIndex >= this.selectedColumns().length ||
-      dropIndex >= this.selectedColumns().length
-    ) {
-      return;
-    }
-
-    const next = [...this.selectedColumns()];
-    const [moved] = next.splice(dragIndex, 1);
-    next.splice(dropIndex, 0, moved);
-    this.selectedColumns.set(next);
-    this.saveSelectedColumns();
   }
 
-  /**
-   * Cleans up subscriptions and restores the original resize handler.
-   */
-  ngOnDestroy(): void {
-    this.globalFilterSubscription?.unsubscribe();
+  restorePageState() {
+    const previous = this.pendingPageRestore();
+    this.pendingPageRestore.set(null);
+    if (!previous) return;
+    this.first.set(previous.first);
+    this.table.rows = previous.rows;
+    this.table.first = previous.first;
+  }
 
-    if (this.table && this.originalOnColumnResizeEnd) {
-      (
-        this.table as { onColumnResizeEnd?: (...args: unknown[]) => void }
-      ).onColumnResizeEnd = this.originalOnColumnResizeEnd;
-      this.originalOnColumnResizeEnd = undefined;
-    }
+  private applyPendingLazyEvent(): void {
+    const event = this.pendingLazyEvent();
+    this.pendingLazyEvent.set(null);
+    this.pendingSortRestore.set(null);
+    this.pendingPageRestore.set(null);
+    if (event) this.emitLazyLoad(event);
+  }
+
+  private confirmBeforeViewChange(
+    header: string,
+    detail: string,
+    onContinue: () => void,
+  ): void {
+    const pendingSummary = this.buildPendingSummary();
+    this.confirmationService.confirm({
+      header,
+      message: `${pendingSummary} ${detail}`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'ادامه',
+      rejectLabel: 'لغو',
+      closable: false,
+      closeOnEscape: false,
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-danger p-button-outlined',
+      accept: () => {
+        // Auto-save then continue
+        this.emitSave();
+        // Note: parent must call `done(true)` then trigger onContinue
+        // via observing the save output and re-emitting lazyLoad.
+        // For simplicity, we expose a hook:
+        this.pendingContinueAfterSave = onContinue;
+      },
+      reject: () => {
+        this.pendingLazyEvent.set(null);
+        this.restoreSortState();
+        this.restorePageState();
+      },
+    });
+  }
+
+  private pendingContinueAfterSave?: () => void;
+
+  private buildPendingSummary(): string {
+    const edited = this.editedCount();
+    const added = this.addedCount();
+    if (edited > 0 && added > 0)
+      return `شما ${edited} تغییر دارید و ${added} سطر اضاف کردید`;
+    if (edited > 0) return `شما ${edited} تغییر ذخیره نشده دارید`;
+    return `شما ${added} سطر اضفه کردید که ذخیره نشده است`;
   }
 }
