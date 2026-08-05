@@ -36,6 +36,7 @@ import {
   TableColumnDefinition,
   ValidatorFn,
 } from '../../models/batch-table.model';
+import { TableItem } from '../../models/table-item';
 
 @Component({
   selector: 'app-batch-table',
@@ -235,9 +236,39 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   // ---------- Column selection ----------
   private initSelectedColumns(): void {
     const initial = this.initialSelectedColumns();
-    this.selectedColumns.set(
-      initial && initial.length ? [...initial] : [...this.columns()],
+    const isEqual = this.areArraysEqual(
+      this.columns(),
+      initial?.length ? initial : [],
     );
+    if (isEqual) {
+      this.selectedColumns.set(
+        initial && initial.length ? [...initial] : [...this.columns()],
+      );
+      return;
+    }
+
+    this.selectedColumns.set([...this.columns()]);
+  }
+
+  areArraysEqual(arr1: any, arr2: any) {
+    if (arr1.length !== arr2.length) {
+      return false;
+    }
+
+    const remaining = [...arr2];
+
+    return arr1.every((item: any) => {
+      const index = remaining.findIndex(
+        (other) => JSON.stringify(other) === JSON.stringify(item),
+      );
+
+      if (index === -1) {
+        return false;
+      }
+
+      remaining.splice(index, 1);
+      return true;
+    });
   }
 
   onSelectedColumnsChange(cols: TableColumnDefinition<T>[]): void {
