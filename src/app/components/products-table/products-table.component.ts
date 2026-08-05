@@ -6,7 +6,6 @@ import {
   TableColumnDefinition,
   ValidatorFn,
 } from '../../models/batch-table.model';
-import { BatchTableStateService } from '../../services/batch-table-state.service';
 
 @Component({
   selector: 'app-products-table',
@@ -33,8 +32,6 @@ export class ProductsTableComponent {
   readonly page = signal<Product[]>([]);
   readonly total = signal(0);
   readonly loading = signal(false);
-
-  state = inject(BatchTableStateService);
 
   readonly columns: TableColumnDefinition<Product>[] = [
     { field: 'test1', header: 'Code', faHeader: 'کد', width: '15%' },
