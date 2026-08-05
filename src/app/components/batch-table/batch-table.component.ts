@@ -426,9 +426,9 @@ export class BatchTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.first() !== 0) {
-      this.loadPage({ first: 0, rows: this.rows });
-    }
+    // if (this.first() !== 0) {
+    //   this.loadPage({ first: 0, rows: this.rows });
+    // }
     this.state.startAddRow();
   }
 
