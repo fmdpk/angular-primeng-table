@@ -33,6 +33,7 @@ export class ProductsTableComponent {
   readonly page = signal<Product[]>([]);
   readonly total = signal(0);
   readonly rows = signal(0);
+  readonly userSelectedRows = signal(5);
   readonly loading = signal(false);
 
   readonly columns: TableColumnDefinition<Product>[] = [
@@ -120,8 +121,9 @@ export class ProductsTableComponent {
       return;
     }
 
-    this.total.set(this.total() / this.rows() + 1);
+    const totalPages = Math.ceil(this.total() / this.rows());
     this.rows.set(this.rows() + 1);
+    this.total.set(this.rows() * totalPages);
   }
 
   onDiscard() {
