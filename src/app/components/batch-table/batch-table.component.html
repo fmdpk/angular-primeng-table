@@ -46,7 +46,7 @@
     [dir]="dir()"
     [value]="tableValue()"
     [lazy]="true"
-    [paginator]="true"
+    [paginator]="tableValue().length > rows()"
     [rows]="rows()"
     [rowTrackBy]="trackByFn"
     [columns]="selectedColumns()"

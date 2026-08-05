@@ -66,6 +66,7 @@ export class BatchTableComponent<
   readonly totalRecords = input<number>(0);
   readonly loading = input<boolean>(false);
   readonly rows = input<number>(5);
+  readonly userSelectedRows = input<number>(5);
   readonly columns = input.required<TableColumnDefinition<T>[]>();
 
   /** Initial visible columns. If omitted, all columns are shown. */

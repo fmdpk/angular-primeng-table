@@ -18,6 +18,7 @@ import {
       [loading]="loading()"
       [rows]="rows()"
       [columns]="columns"
+      [userSelectedRows]="userSelectedRows()"
       [validators]="validators"
       keyField="id"
       (lazyLoad)="onLazyLoad($event)"
@@ -40,6 +41,12 @@ export class ProductsTableComponent {
   readonly columns: TableColumnDefinition<Product>[] = [
     { field: 'test1', header: 'Code', faHeader: 'کد', width: '15%' },
     { field: 'test2', header: 'Name', faHeader: 'نام', width: '25%' },
+    {
+      field: 'test3',
+      header: 'Family',
+      faHeader: 'خانوادگی نام',
+      width: '25%',
+    },
     { field: 'categoryy', header: 'Category', faHeader: 'دسته', width: '20%' },
     {
       field: 'quantity',
@@ -60,6 +67,7 @@ export class ProductsTableComponent {
   readonly validators: Partial<Record<string, ValidatorFn<Product>>> = {
     test1: (v) => (v ? null : 'کد را وارد کنید'),
     test2: (v) => (v ? null : 'نام را وارد کنید'),
+    test3: (v) => (v ? null : 'نام خانوادگی را وارد کنید'),
     quantity: (v) =>
       v === '' || v == null
         ? 'تعداد الزامی است'
@@ -107,7 +115,7 @@ export class ProductsTableComponent {
       this.page.set([...savedCreates, ...updatedPage]);
 
       // 5. Update total records (if using pagination)
-      this.total.set(this.total() + savedCreates.length);
+      this.total.set(this.page().length);
 
       this.loading.set(false);
 
@@ -117,13 +125,20 @@ export class ProductsTableComponent {
   }
 
   onAddRow(rowCount: number) {
-    const totalPages = Math.ceil(this.total() / this.rows());
-    this.rows.set(rowCount);
-    this.total.set(this.rows() * totalPages);
+    if (this.page().length <= 5) {
+      this.rows.set(rowCount);
+      this.total.set(rowCount);
+    } else {
+      const rows = this.rows() > 0 ? this.rows() : this.rows() + 1;
+      const totalPages = +Math.ceil(this.total() / rows);
+      this.rows.set(rowCount);
+      this.total.set(this.rows() * totalPages);
+    }
   }
 
   onResetRows() {
     this.rows.set(this.userSelectedRows());
+    this.total.set(this.page().length);
   }
 
   onDiscard() {
