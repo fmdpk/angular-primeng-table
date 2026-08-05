@@ -16,7 +16,7 @@ import {
       [value]="page()"
       [totalRecords]="total()"
       [loading]="loading()"
-      [rows]="5"
+      [rows]="rows()"
       [columns]="columns"
       [validators]="validators"
       keyField="id"
@@ -24,6 +24,7 @@ import {
       (save)="onSave($event)"
       (discard)="onDiscard()"
       (cellEdit)="onCellEdit($event)"
+      (addRow)="onAddRow($event)"
       (columnsReorder)="onColumnsReorder($event)"
     />
   `,
@@ -31,6 +32,7 @@ import {
 export class ProductsTableComponent {
   readonly page = signal<Product[]>([]);
   readonly total = signal(0);
+  readonly rows = signal(0);
   readonly loading = signal(false);
 
   readonly columns: TableColumnDefinition<Product>[] = [
@@ -110,6 +112,16 @@ export class ProductsTableComponent {
       // 6. Tell the child component to clear its dirty state
       event.done(true);
     }, 500);
+  }
+
+  onAddRow(resetAddRow: boolean) {
+    if (resetAddRow) {
+      this.rows.set(5);
+      return;
+    }
+
+    this.total.set(this.total() / this.rows() + 1);
+    this.rows.set(this.rows() + 1);
   }
 
   onDiscard() {
