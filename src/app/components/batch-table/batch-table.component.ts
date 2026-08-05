@@ -6,6 +6,7 @@ import {
   inject,
   input,
   OnDestroy,
+  OnInit,
   output,
   signal,
   ViewChild,
@@ -57,9 +58,9 @@ import {
   styleUrl: './batch-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class BatchTableComponent<
-  T extends Record<string, any> = any,
-> implements OnDestroy {
+export class BatchTableComponent<T extends Record<string, any> = any>
+  implements OnInit, OnDestroy
+{
   // ---------- Inputs ----------
   /** Current page rows coming from the parent (server data, not merged). */
   readonly value = input.required<T[]>();
@@ -221,6 +222,8 @@ export class BatchTableComponent<
       this.patchRtlColumnResize();
     });
   }
+
+  ngOnInit(): void {}
 
   ngOnDestroy(): void {
     if (this.table && this.originalOnColumnResizeEnd) {

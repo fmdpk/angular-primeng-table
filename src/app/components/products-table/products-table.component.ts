@@ -1,11 +1,12 @@
-import { Component, inject, signal } from '@angular/core';
-import { Product } from '../../models/product';
+import { Component, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { TableItem } from '../../models/table-item';
 import { BatchTableComponent } from '../batch-table/batch-table.component';
 import {
   BatchSaveEvent,
   TableColumnDefinition,
   ValidatorFn,
 } from '../../models/batch-table.model';
+import { isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-products-table',
@@ -20,6 +21,7 @@ import {
       [columns]="columns"
       [userSelectedRows]="userSelectedRows()"
       [validators]="validators"
+      [initialSelectedColumns]="initialSelectedColumns()"
       keyField="id"
       (lazyLoad)="onLazyLoad($event)"
       (save)="onSave($event)"
@@ -27,24 +29,29 @@ import {
       (cellEdit)="onCellEdit($event)"
       (onchangeRowCount)="onAddRow($event)"
       (resetRowsCount)="onResetRows()"
+      (selectedColumnsChange)="onSelectedColumnsChange($event)"
       (columnsReorder)="onColumnsReorder($event)"
     />
   `,
 })
-export class ProductsTableComponent {
-  readonly page = signal<Product[]>([]);
+export class ProductsTableComponent implements OnInit {
+  readonly selectedColumnsKey = signal('PRODUCT_TABLE_SELECTED_COLUMNS');
+  readonly page = signal<TableItem[]>([]);
   readonly total = signal(0);
   readonly rows = signal(0);
   readonly userSelectedRows = signal(5);
   readonly loading = signal(false);
+  private readonly platformId = inject(PLATFORM_ID);
+  readonly isBrowser = isPlatformBrowser(this.platformId);
+  initialSelectedColumns = signal<TableColumnDefinition<TableItem>[]>([]);
 
-  readonly columns: TableColumnDefinition<Product>[] = [
+  readonly columns: TableColumnDefinition<TableItem>[] = [
     { field: 'test1', header: 'Code', faHeader: 'کد', width: '15%' },
     { field: 'test2', header: 'Name', faHeader: 'نام', width: '25%' },
     {
       field: 'test3',
       header: 'Family',
-      faHeader: 'خانوادگی نام',
+      faHeader: 'نام خانوادگی',
       width: '25%',
     },
     { field: 'categoryy', header: 'Category', faHeader: 'دسته', width: '20%' },
@@ -64,7 +71,7 @@ export class ProductsTableComponent {
     },
   ];
 
-  readonly validators: Partial<Record<string, ValidatorFn<Product>>> = {
+  readonly validators: Partial<Record<string, ValidatorFn<TableItem>>> = {
     test1: (v) => (v ? null : 'کد را وارد کنید'),
     test2: (v) => (v ? null : 'نام را وارد کنید'),
     test3: (v) => (v ? null : 'نام خانوادگی را وارد کنید'),
@@ -82,8 +89,15 @@ export class ProductsTableComponent {
           : null,
   };
 
+  ngOnInit(): void {
+    if (this.isBrowser) {
+      this.initialSelectedColumns.set(
+        JSON.parse(localStorage.getItem(this.selectedColumnsKey())!),
+      );
+    }
+  }
+
   onLazyLoad(event: any) {
-    console.log(event);
     this.loading.set(true);
     // Call your API, then:
     // this.page.set(result.data);
@@ -91,8 +105,7 @@ export class ProductsTableComponent {
     this.loading.set(false);
   }
 
-  onSave(event: BatchSaveEvent<Product>) {
-    console.log(event);
+  onSave(event: BatchSaveEvent<TableItem>) {
     this.loading.set(true);
 
     setTimeout(() => {
@@ -145,11 +158,20 @@ export class ProductsTableComponent {
     // Re-fetch or simply rely on next lazyLoad
   }
 
-  onCellEdit(e: { row: Product; field: string; value: unknown }) {
+  onCellEdit(e: { row: TableItem; field: string; value: unknown }) {
     // Optional side effects
   }
 
-  onColumnsReorder(cols: TableColumnDefinition<Product>[]) {
+  onColumnsReorder(cols: TableColumnDefinition<TableItem>[]) {
+    this.setColumnsToLocalStorage(cols);
     // persist to localStorage, etc.
+  }
+
+  onSelectedColumnsChange(event: TableColumnDefinition<TableItem>[]) {
+    this.setColumnsToLocalStorage(event);
+  }
+
+  setColumnsToLocalStorage(cols: TableColumnDefinition<TableItem>[]) {
+    localStorage.setItem(this.selectedColumnsKey(), JSON.stringify(cols));
   }
 }
