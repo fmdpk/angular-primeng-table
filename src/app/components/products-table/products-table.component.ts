@@ -24,7 +24,8 @@ import {
       (save)="onSave($event)"
       (discard)="onDiscard()"
       (cellEdit)="onCellEdit($event)"
-      (addRow)="onAddRow($event)"
+      (onchangeRowCount)="onAddRow($event)"
+      (resetRowsCount)="onResetRows()"
       (columnsReorder)="onColumnsReorder($event)"
     />
   `,
@@ -115,15 +116,14 @@ export class ProductsTableComponent {
     }, 500);
   }
 
-  onAddRow(resetAddRow: boolean) {
-    if (resetAddRow) {
-      this.rows.set(5);
-      return;
-    }
-
+  onAddRow(rowCount: number) {
     const totalPages = Math.ceil(this.total() / this.rows());
-    this.rows.set(this.rows() + 1);
+    this.rows.set(rowCount);
     this.total.set(this.rows() * totalPages);
+  }
+
+  onResetRows() {
+    this.rows.set(this.userSelectedRows());
   }
 
   onDiscard() {

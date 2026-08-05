@@ -95,7 +95,8 @@ export class BatchTableComponent<
   readonly cellEdit = output<BatchCellEditEvent<T>>();
   readonly columnsReorder = output<TableColumnDefinition<T>[]>();
   readonly selectedColumnsChange = output<TableColumnDefinition<T>[]>();
-  readonly addRow = output<boolean>();
+  readonly onchangeRowCount = output<number>();
+  readonly resetRowsCount = output<void>();
 
   // ---------- ViewChild ----------
   @ViewChild('dt') table!: Table;
@@ -453,7 +454,7 @@ export class BatchTableComponent<
 
     this.pendingNewRows.update((rows) => [draft as T, ...rows]);
 
-    this.addRow.emit(false);
+    this.onchangeRowCount.emit(this.rows() + 1);
   }
 
   // ---------- Save / Discard ----------
@@ -497,7 +498,7 @@ export class BatchTableComponent<
       creates,
       done: (success: boolean) => {
         if (success) {
-          this.addRow.emit(true);
+          this.resetRowsCount.emit();
           this.resetTracking();
           this.messageService.add({
             severity: 'success',
@@ -627,6 +628,8 @@ export class BatchTableComponent<
       });
       return next;
     });
+
+    this.onchangeRowCount.emit(this.rows() - 1);
   }
 
   // ---------- Validation ----------
