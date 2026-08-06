@@ -252,20 +252,18 @@ export class ProductsTableComponent implements OnInit {
     // Call your API, then:
     // this.page.set(result.data);
     // this.total.set(result.total);
-    this.loading.set(false);
+    setTimeout(() => {
+
+      this.loading.set(false);
+    }, 500); // Simulate API delay
   }
 
   onSave(event: BatchSaveEvent<TableItem>) {
-    this.loading.set(true);
-
     setTimeout(() => {
-      // 1. Create a Set of deleted IDs for fast lookup
+      console.log(event)
       const deletedIds = new Set(event.deletes);
-
-      // 2. Apply updates to existing rows, AND filter out deleted rows
       const updatesMap = new Map(event.updates.map((u: any) => [u.id, u]));
 
-      // 2. Map over the CURRENT page to preserve exact order, applying updates if they exist
       const updatedPage = this.page()
         .filter((row: any) => !deletedIds.has(String(row.id)))
         .map((row: any) => {
@@ -273,21 +271,49 @@ export class ProductsTableComponent implements OnInit {
           return updatedRow ? { ...updatedRow } : row;
         });
 
-      // 3. Simulate backend generating unique IDs for newly created rows
       const savedCreates = event.creates.map((p, index) => ({
         ...p,
         id: Date.now() + index,
       }));
 
-      // 4. Prepend the newly created rows (since drafts are prepended in the child component)
-      this.page.set([...savedCreates, ...updatedPage]);
+      const tempIdToRealId = new Map<string, string>();
+      event.creates.forEach((p: any, index: number) => {
+        if (p._tempId) {
+          tempIdToRealId.set(String(p._tempId), String(savedCreates[index].id));
+        }
+      });
 
-      // 5. Update total records (if using pagination)
+      // 2. Translate the rowOrder array
+      const translatedRowOrder = event.rowOrder.map((id) => {
+        // If the ID was a tempId, replace it with the new real ID. Otherwise, keep it as is.
+        return tempIdToRealId.get(String(id)) ?? String(id);
+      });
+
+      let finalPageData = [...savedCreates, ...updatedPage];
+
+      if (translatedRowOrder && translatedRowOrder.length > 0) {
+        finalPageData.sort((a: any, b: any) => {
+          const idA = String(a.id);
+          const idB = String(b.id);
+          const idxA = translatedRowOrder.indexOf(idA);
+          const idxB = translatedRowOrder.indexOf(idB);
+          // If an ID isn't found in rowOrder, push it to the end
+          return (
+            (idxA === -1 ? Infinity : idxA) - (idxB === -1 ? Infinity : idxB)
+          );
+        });
+      }
+
+      const cleanFinalData = finalPageData.map((row: any) => {
+        const { _tempId, ...cleanRow } = row;
+        return cleanRow;
+      });
+
+      console.log(cleanFinalData);
+
+      this.page.set(cleanFinalData);
       this.total.set(this.page().length);
 
-      this.loading.set(false);
-
-      // 6. Tell the child component to clear its dirty state
       event.done(true);
     }, 500);
   }

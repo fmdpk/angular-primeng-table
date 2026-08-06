@@ -8,11 +8,12 @@ import {
   OnDestroy,
   OnInit,
   output,
+  PLATFORM_ID,
   signal,
   TemplateRef,
   ViewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -26,6 +27,7 @@ import {
   TableEditCompleteEvent,
   TableLazyLoadEvent,
   TableModule,
+  TableRowReorderEvent,
 } from 'primeng/table';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
@@ -121,6 +123,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     done: (success: boolean) => void;
   }>();
   readonly isAnyRowEditing = computed(() => this.editingRows().size > 0);
+  readonly pendingRowOrder = signal<string[] | null>(null);
+  readonly hasRowOrderChanged = computed(() => this.pendingRowOrder() !== null);
 
   readonly first = signal(0);
   readonly internalLoading = signal(false);
@@ -154,6 +158,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     rows: number;
   } | null>(null);
   private originalOnColumnResizeEnd?: (...args: unknown[]) => void;
+  private readonly platformId = inject(PLATFORM_ID);
+  readonly isBrowser = isPlatformBrowser(this.platformId);
 
   // ---------- Computed ----------
   readonly addedCount = computed(() => this.pendingNewRows().length);
@@ -168,7 +174,11 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   });
 
   readonly totalPendingCount = computed(
-    () => this.editedCount() + this.addedCount() + this.deletedCount(),
+    () =>
+      this.editedCount() +
+      this.addedCount() +
+      this.deletedCount() +
+      (this.hasRowOrderChanged() ? 1 : 0),
   );
   readonly deletedCount = computed(() => this.pendingDeletes().size);
 
@@ -220,9 +230,22 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       }
     }
 
-    return first === 0 && drafts.length
-      ? ([...drafts, ...augmented] as BatchTableItem<T>[])
-      : augmented;
+    let finalRows =
+      first === 0 && drafts.length
+        ? ([...drafts, ...augmented] as BatchTableItem<T>[])
+        : augmented;
+
+    // APPLY ROW REORDER SORTING
+    const order = this.pendingRowOrder();
+    if (order && order.length) {
+      finalRows = [...finalRows].sort((a, b) => {
+        const idA = String((a as any)[keyField] ?? a._tempId);
+        const idB = String((b as any)[keyField] ?? b._tempId);
+        return order.indexOf(idA) - order.indexOf(idB);
+      });
+    }
+
+    return finalRows;
   });
 
   /** Numeric totals per field — generic for any numeric field. */
@@ -304,13 +327,14 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       if (
         this.hasAnyInvalidNewRow() ||
         this.hasAnyInvalidRow() ||
-        this.isAnyRowEditing()
+        this.isAnyRowEditing() ||
+        this.hasRowOrderChanged()
       ) {
         this.markAllRowsTouched();
         this.messageService.add({
           severity: 'warn',
           summary: 'توجه',
-          detail: 'لطفا تمامی موارد موجود در جدول را برطرف کنید',
+          detail: 'لطفا تمامی موارد موجود در جدول را ذخیره کنید',
         });
         if (sortChanged) this.restoreSortState();
         if (onlyPaging) this.restorePageState();
@@ -541,12 +565,19 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   private emitSave(): void {
     const updates = this.collectUpdates();
     const creates = this.collectCreates();
-    const deletes = Array.from(this.pendingDeletes()); // Get deleted IDs
+    const deletes = Array.from(this.pendingDeletes());
+    const rowOrder = this.pendingRowOrder() ?? [];
+
+    console.log(updates);
+    console.log(creates);
+    console.log(deletes);
+    console.log(rowOrder);
 
     this.save.emit({
       updates,
       creates,
       deletes,
+      rowOrder,
       done: (success: boolean) => {
         if (success) {
           this.resetRowsCount.emit();
@@ -594,7 +625,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   private collectCreates(): T[] {
     return this.pendingNewRows().map((row, index) => {
-      const { _isNew, _tempId, _original, ...core } = row as any;
+      const { _isNew, _original, ...core } = row as any;
+      console.log(core);
       return { ...core } as T;
     });
   }
@@ -761,7 +793,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     this.pendingNewRows.set([]);
     this.dirtyKeys.set(new Set());
     this.touched.set(new Map());
-    this.pendingDeletes.set(new Set()); // <-- ADD THIS
+    this.pendingDeletes.set(new Set());
+    this.pendingRowOrder.set(null);
     this.augmentedCache.clear();
   }
 
@@ -1154,5 +1187,30 @@ export class BatchTableComponent<T extends Record<string, any> = any>
         }
       },
     });
+  }
+
+  onRowReorder(event: TableRowReorderEvent): void {
+    const currentRows = this.tableValue();
+
+    const newOrder = currentRows.map((r) =>
+      String((r as any)[this.keyField()] ?? r._tempId),
+    );
+
+    let newRows = this.pendingNewRows();
+    let result: T[] = [];
+    newOrder.forEach((newOrderITem) => {
+      newRows.forEach((item) => {
+        if (+newOrderITem === item['id']) {
+          result.push(item);
+        }
+      });
+    });
+    this.pendingNewRows.set([...result]);
+    this.pendingRowOrder.set(newOrder);
+  }
+
+  // Method to undo row reorder
+  undoRowOrder(): void {
+    this.pendingRowOrder.set(null);
   }
 }

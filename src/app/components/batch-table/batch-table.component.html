@@ -50,10 +50,25 @@
           />
         </span>
       }
+
+      @if (hasRowOrderChanged()) {
+        <span class="flex align-items-center gap-2 text-color-secondary">
+          ترتیب سطرها تغییر کرد
+          <p-button
+            label="بازگردانی ترتیب"
+            icon="pi pi-undo"
+            (onClick)="undoRowOrder()"
+            size="small"
+            [text]="true"
+            severity="warn"
+          />
+        </span>
+      }
     </div>
   </div>
 
-  <p-table
+  @if(isBrowser){
+    <p-table
     #dt
     [dir]="dir()"
     [value]="tableValue()"
@@ -75,6 +90,7 @@
     (onLazyLoad)="loadPage($event)"
     (onEditComplete)="onCellEditComplete($event)"
     (onColReorder)="onColReorder($event)"
+    (onRowReorder)="onRowReorder($event)"
     [tableStyle]="{ 'min-width': '50rem', 'table-layout': 'fixed' }"
   >
     <ng-template pTemplate="caption">
@@ -89,7 +105,8 @@
             hasAnyInvalidNewRow() ||
             hasAnyInvalidRow() ||
             totalPendingCount() > 0 ||
-            isAnyRowEditing()
+            isAnyRowEditing() ||
+            hasRowOrderChanged()
           "
         />
         <div class="flex items-center justify-between gap-2">
@@ -98,7 +115,8 @@
               hasAnyInvalidNewRow() ||
               hasAnyInvalidRow() ||
               totalPendingCount() > 0 ||
-              isAnyRowEditing()
+              isAnyRowEditing() ||
+              hasRowOrderChanged()
             "
             display="chip"
             [options]="columns()"
@@ -118,7 +136,8 @@
               hasAnyInvalidNewRow() ||
               hasAnyInvalidRow() ||
               totalPendingCount() > 0 ||
-              isAnyRowEditing()
+              isAnyRowEditing() ||
+              hasRowOrderChanged()
             "
           />
         </div>
@@ -377,14 +396,20 @@
       </tr>
     </ng-template>
 
-    <ng-template pTemplate="emptymessage" let-columns>
+    <ng-template pTemplate="emptymessage">
       <tr>
-        <td [attr.colspan]="columns.length + 2" class="text-center">
+        <td
+          [attr.colspan]="
+            selectedColumns().length + (allowReorder() ? 1 : 0) + 1
+          "
+          class="text-center"
+        >
           {{ emptyMessage() }}
         </td>
       </tr>
     </ng-template>
   </p-table>
+  }
 </div>
 
 <p-confirmDialog />
