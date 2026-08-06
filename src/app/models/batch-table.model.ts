@@ -1,3 +1,5 @@
+import { TemplateRef } from '@angular/core';
+
 export interface TableColumnDefinition<T = any> {
   field: string;
   header: string;
@@ -5,6 +7,7 @@ export interface TableColumnDefinition<T = any> {
   width?: string;
   type?: 'text' | 'number' | 'select';
   options?: { label: string; value: unknown }[];
+  template?: TemplateRef<any>;
 }
 
 export type ValidatorFn<T = any> = (value: unknown, row: T) => string | null;

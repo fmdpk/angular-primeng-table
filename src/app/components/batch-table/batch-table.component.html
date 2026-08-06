@@ -224,13 +224,23 @@
         @for (item of columns; track item.field) {
           <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
             @if (isRowEditing(row)) {
-              <!-- EDIT MODE: Inject the parent's custom input template -->
-              <ng-container
-                *ngTemplateOutlet="
-                  editorInputTemplate();
-                  context: { $implicit: row, column: item, table: this }
-                "
-              ></ng-container>
+              @if (item.template) {
+                <!-- If column has a specific template, use it -->
+                <ng-container
+                  *ngTemplateOutlet="
+                    item.template;
+                    context: { $implicit: row, column: item, table: this }
+                  "
+                ></ng-container>
+              } @else {
+                <!-- Fallback to the global editorInputTemplate -->
+                <ng-container
+                  *ngTemplateOutlet="
+                    editorInputTemplate();
+                    context: { $implicit: row, column: item, table: this }
+                  "
+                ></ng-container>
+              }
             } @else {
               <!-- VIEW MODE: Standard output -->
               <div class="flex flex-col gap-1">

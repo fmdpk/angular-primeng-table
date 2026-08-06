@@ -1,5 +1,6 @@
 import {
   Component,
+  computed,
   inject,
   OnInit,
   PLATFORM_ID,
@@ -27,6 +28,8 @@ import {
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
+import { DialogModule } from 'primeng/dialog';
+import { TableModule } from 'primeng/table';
 
 @Component({
   selector: 'app-products-table',
@@ -39,170 +42,20 @@ import { MessageService } from 'primeng/api';
     FormsModule,
     InputTextModule,
     SelectModule,
+    DialogModule, // <-- ADD
+    TableModule,
   ],
-  template: `
-    <app-batch-table
-      [value]="page()"
-      [totalRecords]="total()"
-      [loading]="loading()"
-      [rows]="rows()"
-      [columns]="columns"
-      [userSelectedRows]="userSelectedRows()"
-      [validators]="validators"
-      [initialSelectedColumns]="initialSelectedColumns()"
-      keyField="id"
-      (lazyLoad)="onLazyLoad($event)"
-      (save)="onSave($event)"
-      (discard)="onDiscard()"
-      (cellEdit)="onCellEdit($event)"
-      (onchangeRowCount)="onAddRow($event)"
-      (resetRowsCount)="onResetRows()"
-      (selectedColumnsChange)="onSelectedColumnsChange($event)"
-      (columnsReorder)="onColumnsReorder($event)"
-      [headerFormTemplate]="headerForm"
-      [editorInputTemplate]="customCellInput"
-      [headerFormActionTemplate]="headerSubmit"
-      (rowEditConfirm)="onRowEditConfirm($event)"
-    />
-
-    <ng-template #headerForm let-col>
-      <ng-container [formGroup]="addRowForm">
-        <div class="flex flex-col gap-1 w-full" style="display: block;">
-          @switch (col.field) {
-            @case ('category') {
-              <p-select
-                [options]="categories"
-                [formControlName]="col.field"
-                [placeholder]="col.faHeader"
-                appendTo="body"
-                styleClass="w-full"
-                [overlayOptions]="{
-                  styleClass: 'p-custom-select-overlay',
-                }"
-                [style]="{ width: '100%' }"
-                [class.p-invalid]="
-                  addRowForm.get(col.field)?.invalid &&
-                  addRowForm.get(col.field)?.touched
-                "
-              />
-            }
-            @default {
-              <input
-                pInputText
-                [type]="col.type === 'number' ? 'number' : 'text'"
-                [formControlName]="col.field"
-                [placeholder]="col.faHeader"
-                class="w-full"
-                [class.p-invalid]="
-                  addRowForm.get(col.field)?.invalid &&
-                  addRowForm.get(col.field)?.touched
-                "
-                [class.ng-invalid]="
-                  addRowForm.get(col.field)?.invalid &&
-                  addRowForm.get(col.field)?.touched
-                "
-              />
-            }
-          }
-
-          <!-- Show error message under the input -->
-          <small class="p-error text-xs">
-            @if (
-              addRowForm.get(col.field)?.invalid &&
-              addRowForm.get(col.field)?.touched
-            ) {
-              {{ getErrorMessage(col.field) }}
-            }
-          </small>
-        </div>
-      </ng-container>
-    </ng-template>
-
-    <!-- 2. Template for the submit button -->
-    <ng-template #headerSubmit>
-      <p-button
-        (onClick)="submitNewRow()"
-        icon="pi pi-plus"
-        size="small"
-        [rounded]="true"
-      />
-    </ng-template>
-
-    <!-- Define Custom Cell Input Template -->
-    <!-- Inside products-table.component.ts template -->
-    <ng-template #customCellInput let-row let-column="column" let-table="table">
-      <!-- Wrapper div to hold input and error message -->
-      <div class="flex flex-col gap-1 w-full">
-        @switch (column.field) {
-          @case ('code') {
-            <input
-              pInputText
-              type="number"
-              [ngModel]="row[column.field]"
-              (ngModelChange)="onCodeChange(table, row, $event)"
-              class="w-full"
-              [class.p-invalid]="
-                table.isFieldTouched(row, column.field) &&
-                table.getFieldError(row, column.field)
-              "
-            />
-          }
-
-          @case ('category') {
-            <p-select
-              [options]="categories"
-              [ngModel]="row[column.field]"
-              (ngModelChange)="
-                onStandardChange(table, row, column.field, $event)
-              "
-              [placeholder]="column.faHeader"
-              [appendTo]="'body'"
-              styleClass="w-full p-custom-select"
-              [overlayOptions]="{
-                styleClass: 'p-custom-select-overlay',
-              }"
-              [style]="{ width: '100%', display: 'inline-flex' }"
-              [class.p-invalid]="
-                addRowForm.get(column.field)?.invalid &&
-                addRowForm.get(column.field)?.touched
-              "
-            />
-          }
-
-          @default {
-            <input
-              pInputText
-              type="text"
-              [ngModel]="row[column.field]"
-              (ngModelChange)="
-                onStandardChange(table, row, column.field, $event)
-              "
-              class="w-full"
-              [class.p-invalid]="
-                table.isFieldTouched(row, column.field) &&
-                table.getFieldError(row, column.field)
-              "
-            />
-          }
-        }
-
-        <!-- Show validation message under the input while editing -->
-        @if (
-          table.isFieldTouched(row, column.field) &&
-            table.getFieldError(row, column.field);
-          as err
-        ) {
-          <small class="p-error text-xs">{{ err }}</small>
-        }
-      </div>
-    </ng-template>
-  `,
+  templateUrl: './products-table.component.html',
 })
 export class ProductsTableComponent implements OnInit {
   // References to templates
   readonly batchTable = viewChild(BatchTableComponent<TableItem>);
   @ViewChild('headerForm') headerForm!: TemplateRef<any>;
   @ViewChild('customCellInput') customCellInput!: TemplateRef<any>;
+
+  readonly codeInputCell = viewChild('codeInputCell', {
+    read: TemplateRef,
+  });
 
   readonly selectedColumnsKey = signal('PRODUCT_TABLE_SELECTED_COLUMNS');
   readonly page = signal<TableItem[]>([]);
@@ -214,8 +67,14 @@ export class ProductsTableComponent implements OnInit {
   readonly isBrowser = isPlatformBrowser(this.platformId);
   initialSelectedColumns = signal<TableColumnDefinition<TableItem>[]>([]);
 
-  readonly columns: TableColumnDefinition<TableItem>[] = [
-    { field: 'code', header: 'Code', faHeader: 'کد', width: '15%' },
+  readonly columns = computed<TableColumnDefinition<TableItem>[]>(() => [
+    {
+      field: 'code',
+      header: 'Code',
+      faHeader: 'کد',
+      width: '15%',
+      template: this.codeInputCell(), // Attach template here!
+    },
     { field: 'name', header: 'Name', faHeader: 'نام', width: '25%' },
     { field: 'category', header: 'Category', faHeader: 'دسته', width: '20%' },
     {
@@ -232,15 +91,24 @@ export class ProductsTableComponent implements OnInit {
       width: '25%',
       type: 'number',
     },
-  ];
+  ]);
 
   // 1. Add categories for the select dropdown
   categories = ['دسته 1', 'دسته 2', 'دسته 3'];
+  isDialogVisible = signal(false);
+  selectedDialogRow = signal<any>(null);
+  activeEditingRow = signal<any>(null);
+
+  dialogProducts = [
+    { id: 1, code: 'PRD-001', name: 'لپ تاپ' },
+    { id: 2, code: 'PRD-002', name: 'موس' },
+    { id: 3, code: 'PRD-003', name: 'کیبورد' },
+  ];
 
   private fb = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
   addRowForm = this.fb.group(
-    this.columns.reduce(
+    this.columns().reduce(
       (acc, col) => {
         // Make all fields required. Add more specific validators if needed.
         const validators = [Validators.required];
@@ -278,6 +146,28 @@ export class ProductsTableComponent implements OnInit {
         JSON.parse(localStorage.getItem(this.selectedColumnsKey())!),
       );
     }
+  }
+
+  openProductDialog(row: any, table: any) {
+    this.activeEditingRow.set(row);
+    this.selectedDialogRow.set(null);
+    this.isDialogVisible.set(true);
+    // Mark field touched so validation shows if they try to save without selecting
+    table.markFieldTouched(row, 'code');
+  }
+
+  confirmDialogSelection() {
+    const row = this.activeEditingRow();
+    const selected = this.selectedDialogRow();
+    if (row && selected) {
+      // Simulate API response replacing the value
+      row['code'] = selected.code;
+
+      // Mark as touched again to re-validate the new value
+      // (Assuming batchTable is accessible, otherwise pass 'table' reference)
+      this.batchTable()?.markFieldTouched(row, 'code');
+    }
+    this.isDialogVisible.set(false);
   }
 
   // 1. Handle Header Form Submission
