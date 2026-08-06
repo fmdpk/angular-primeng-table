@@ -9,6 +9,7 @@ import {
   OnInit,
   output,
   signal,
+  TemplateRef,
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -70,6 +71,9 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   readonly rows = input<number>(5);
   readonly userSelectedRows = input<number>(5);
   readonly columns = input.required<TableColumnDefinition<T>[]>();
+  readonly headerFormTemplate = input<TemplateRef<any> | null>(null);
+  readonly editorInputTemplate = input<TemplateRef<any> | null>(null);
+  readonly headerFormActionTemplate = input<TemplateRef<any> | null>(null);
 
   /** Initial visible columns. If omitted, all columns are shown. */
   readonly initialSelectedColumns = input<TableColumnDefinition<T>[] | null>(
@@ -107,6 +111,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   // ---------- Internal state ----------
   readonly pendingFieldValues = signal<Map<string, unknown>>(new Map());
   readonly pendingNewRows = signal<T[]>([]);
+  readonly pendingDeletes = signal<Set<string>>(new Set()); // 1. ADD THIS
   readonly dirtyKeys = signal<Set<string>>(new Set());
   readonly touched = signal<Map<string, Set<string>>>(new Map());
 
@@ -156,8 +161,9 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   });
 
   readonly totalPendingCount = computed(
-    () => this.editedCount() + this.addedCount(),
+    () => this.editedCount() + this.addedCount() + this.deletedCount(),
   );
+  readonly deletedCount = computed(() => this.pendingDeletes().size);
 
   /**
    * Augments the parent-provided value with `_original`, applies pending
@@ -169,29 +175,33 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     const first = this.first();
     const keyField = this.keyField();
 
-    const augmented = serverRows.map((row) => {
-      const rowKey = String((row as any)[keyField]);
+    const augmented = serverRows
+      .filter(
+        (row) => !this.pendingDeletes().has(String((row as any)[keyField])),
+      )
+      .map((row) => {
+        const rowKey = String((row as any)[keyField]);
 
-      // Reuse the cached augmented row if the original server row hasn't changed
-      let augmentedRow = this.augmentedCache.get(rowKey);
-      if (!augmentedRow || augmentedRow._original !== row) {
-        augmentedRow = {
-          ...row,
-          _original: row, // Keep reference to the original server row
-        } as BatchTableItem<T>;
-        this.augmentedCache.set(rowKey, augmentedRow);
-      }
-
-      // Apply pending field values directly to the cached object
-      this.pendingFieldValues().forEach((value, key) => {
-        if (key.startsWith(`${rowKey}::`)) {
-          const field = key.split('::')[1];
-          (augmentedRow as any)[field] = value;
+        // Reuse the cached augmented row if the original server row hasn't changed
+        let augmentedRow = this.augmentedCache.get(rowKey);
+        if (!augmentedRow || augmentedRow._original !== row) {
+          augmentedRow = {
+            ...row,
+            _original: row, // Keep reference to the original server row
+          } as BatchTableItem<T>;
+          this.augmentedCache.set(rowKey, augmentedRow);
         }
-      });
 
-      return augmentedRow;
-    });
+        // Apply pending field values directly to the cached object
+        this.pendingFieldValues().forEach((value, key) => {
+          if (key.startsWith(`${rowKey}::`)) {
+            const field = key.split('::')[1];
+            (augmentedRow as any)[field] = value;
+          }
+        });
+
+        return augmentedRow;
+      });
 
     // Clean up cache for rows that are no longer on the current page
     const currentKeys = new Set(
@@ -231,6 +241,29 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       (this.table as any).onColumnResizeEnd = this.originalOnColumnResizeEnd;
       this.originalOnColumnResizeEnd = undefined;
     }
+  }
+
+  //a public method for the parent to call after API success
+  // Inside batch-table.component.ts
+  public addDraftRow(data: Partial<T>): void {
+    const draft = {
+      ...data,
+      _isNew: true,
+      _tempId:
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `temp-${Date.now()}-${Math.random()}`,
+    } as BatchTableItem<T>;
+
+    this.columns().forEach((col) => {
+      if ((draft as any)[col.field] === undefined) {
+        (draft as any)[col.field] = col.type === 'number' ? 0 : '';
+      }
+    });
+
+    draft._original = { ...(draft as any) };
+
+    this.pendingNewRows.update((rows) => [draft as T, ...rows]);
   }
 
   // ---------- Column selection ----------
@@ -497,10 +530,12 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   private emitSave(): void {
     const updates = this.collectUpdates();
     const creates = this.collectCreates();
+    const deletes = Array.from(this.pendingDeletes()); // Get deleted IDs
 
     this.save.emit({
       updates,
       creates,
+      deletes,
       done: (success: boolean) => {
         if (success) {
           this.resetRowsCount.emit();
@@ -715,7 +750,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     this.pendingNewRows.set([]);
     this.dirtyKeys.set(new Set());
     this.touched.set(new Map());
-
+    this.pendingDeletes.set(new Set()); // <-- ADD THIS
     this.augmentedCache.clear();
   }
 
@@ -964,11 +999,62 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   private pendingContinueAfterSave?: () => void;
 
   private buildPendingSummary(): string {
-    const edited = this.editedCount();
-    const added = this.addedCount();
-    if (edited > 0 && added > 0)
-      return `شما ${edited} تغییر دارید و ${added} سطر اضاف کردید`;
-    if (edited > 0) return `شما ${edited} تغییر ذخیره نشده دارید`;
-    return `شما ${added} سطر اضفه کردید که ذخیره نشده است`;
+    if (
+      this.editedCount() > 0 ||
+      this.addedCount() > 0 ||
+      this.deletedCount() > 0
+    ) {
+      return 'اطلاعات در جدول تغییر داده شده است';
+    }
+
+    return '';
+  }
+
+  // 1. ADD: Method to ask for user confirmation before deleting
+  confirmDeleteExistingRow(row: BatchTableItem<T>, popover: any): void {
+    popover.hide(); // Close the popover menu immediately
+
+    this.confirmationService.confirm({
+      message: 'آیا از حذف این سطر مطمئن هستید؟',
+      header: 'حذف سطر',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'حذف',
+      rejectLabel: 'لغو',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => {
+        this.deleteExistingRow(row);
+      },
+    });
+  }
+
+  // 2. ADD: Method to undo all pending deletes
+  undoAllDeletes(): void {
+    this.pendingDeletes.set(new Set());
+  }
+
+  // (Make sure your existing deleteExistingRow method is still here)
+  deleteExistingRow(row: BatchTableItem<T>): void {
+    const id = String((row as any)[this.keyField()]);
+    this.pendingDeletes.update((set) => {
+      const next = new Set(set);
+      next.add(id);
+      return next;
+    });
+
+    this.dirtyKeys.update((set) => {
+      const next = new Set(set);
+      Array.from(next).forEach((key) => {
+        if (key.startsWith(`${id}::`)) next.delete(key);
+      });
+      return next;
+    });
+    this.pendingFieldValues.update((map) => {
+      const next = new Map(map);
+      Array.from(next.keys()).forEach((key) => {
+        if (key.startsWith(`${id}::`)) next.delete(key);
+      });
+      return next;
+    });
   }
 }

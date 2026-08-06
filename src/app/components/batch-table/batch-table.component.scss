@@ -64,6 +64,10 @@
     border-color: var(--p-red-500, #ef4444) !important;
   }
 
+  .p-select.p-invalid {
+    border-color: var(--p-red-500, #ef4444) !important;
+  }
+
   // small red validation text
   .p-error {
     color: var(--p-red-500, #ef4444);

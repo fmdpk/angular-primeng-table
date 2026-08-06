@@ -19,6 +19,7 @@ export interface BatchTableItem<T = any> {
 export interface BatchSaveEvent<T = any> {
   updates: T[];
   creates: T[];
+  deletes: string[];
   /** Call with true after the parent finishes persisting successfully, false on failure. */
   done: (success: boolean) => void;
 }

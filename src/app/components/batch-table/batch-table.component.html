@@ -1,13 +1,13 @@
 <div class="card">
   <div class="flex justify-between mb-3 gap-2">
     <div class="flex gap-2">
-      @if (showAddRow()) {
+      <!-- @if (showAddRow()) {
         <p-button
-          label="اضافه کردن سطر"
+          label="افزودن سطر"
           icon="pi pi-plus"
           (onClick)="startAddRow()"
         />
-      }
+      } -->
       <p-button
         label="ذخیره"
         icon="pi pi-save"
@@ -36,6 +36,21 @@
           } @else {
             {{ addedCount() }} سطر اضافه شده
           }
+        </span>
+      }
+
+      <!-- Show deleted count and Undo button -->
+      @if (deletedCount() > 0) {
+        <span class="flex align-items-center gap-2 text-color-secondary">
+          {{ deletedCount() }} سطر حذف شده
+          <p-button
+            label="بازگردانی"
+            icon="pi pi-undo"
+            (onClick)="undoAllDeletes()"
+            size="small"
+            [text]="true"
+            severity="warn"
+          />
         </span>
       }
     </div>
@@ -127,6 +142,57 @@
         }
         <th style="width: 4rem" pResizableColumn pReorderableColumn></th>
       </tr>
+      <!-- ADD THE FORM IN A NEW TR -> TD -->
+      @if (headerFormTemplate()) {
+        <tr>
+          <!-- Empty header for the reorder icon column -->
+          @if (allowReorder()) {
+            <th
+              class="p-1"
+              style="
+                border-top: 1px solid var(--surface-200);
+                background-color: var(--surface-card);
+              "
+            ></th>
+          }
+
+          <!-- Loop through columns and create a <th> for each -->
+          @for (item of columns; track item.field) {
+            <th
+              class="p-1"
+              style="
+                border-top: 1px solid var(--surface-200);
+                background-color: var(--surface-card);
+                white-space: normal;
+                overflow: visible;
+              "
+            >
+              <!-- Inject the parent's template, passing the column definition -->
+              <ng-container
+                *ngTemplateOutlet="
+                  headerFormTemplate();
+                  context: { $implicit: item }
+                "
+              ></ng-container>
+            </th>
+          }
+
+          <!-- Final <th> for the submit button -->
+          <th
+            class="p-1 text-center"
+            style="
+              border-top: 1px solid var(--surface-200);
+              background-color: var(--surface-card);
+            "
+          >
+            @if (headerFormActionTemplate()) {
+              <ng-container
+                *ngTemplateOutlet="headerFormActionTemplate()"
+              ></ng-container>
+            }
+          </th>
+        </tr>
+      }
     </ng-template>
 
     <ng-template
@@ -153,29 +219,26 @@
           >
             <p-cellEditor>
               <ng-template pTemplate="input">
-                <input
-                  pInputText
-                  type="text"
-                  [(ngModel)]="row[item.field]"
-                  (blur)="markFieldTouched(row, item.field)"
-                  class="w-full"
-                  (keydown)="onEditArrowKey($event)"
-                  [class.p-invalid]="
-                    isFieldTouched(row, item.field) &&
-                    !!getFieldError(row, item.field)
-                  "
-                />
-                @if (
-                  isFieldTouched(row, item.field) &&
-                    getFieldError(row, item.field);
-                  as err
-                ) {
-                  <small class="p-error block text-xs mt-1">{{ err }}</small>
+                @if (editorInputTemplate()) {
+                  <ng-container
+                    *ngTemplateOutlet="
+                      editorInputTemplate();
+                      context: { $implicit: row, column: item, table: this }
+                    "
+                  ></ng-container>
+                } @else {
+                  <!-- Fallback to standard input if parent provides none -->
+                  <input
+                    pInputText
+                    type="text"
+                    [(ngModel)]="row[item.field]"
+                    class="w-full"
+                  />
                 }
               </ng-template>
 
               <ng-template pTemplate="output">
-                <div class="flex flex-column gap-1">
+                <div class="flex flex-col gap-1">
                   <div
                     class="flex align-items-center justify-content-between gap-1"
                   >
@@ -247,7 +310,18 @@
                 <span class="text-color-secondary">لغو تغییرات</span>
               </div>
             } @else {
-              <span>عملیاتی موجود نیست!</span>
+              <!-- ADD OPTION TO DELETE EXISTING ROW -->
+              <div class="flex items-center justify-center gap-1">
+                <p-button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  [rounded]="true"
+                  [text]="true"
+                  size="small"
+                  (onClick)="confirmDeleteExistingRow(row, op)"
+                />
+                <span class="text-color-secondary">حذف</span>
+              </div>
             }
           </p-popover>
         </td>
