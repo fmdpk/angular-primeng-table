@@ -225,15 +225,11 @@
           <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
             @if (isRowEditing(row)) {
               @if (item.component) {
-                <ng-container
-                  *ngComponentOutlet="item.component; inputs: {
-                    row: row,
-                    column: item,
-                    table: this
-                  }"
-                ></ng-container>
-              }
-              @else if (item.template) {
+                <app-lazy-cell-loader
+                  [component]="item.component"
+                  [inputs]="{ row: row, column: item, table: this }"
+                ></app-lazy-cell-loader>
+              } @else if (item.template) {
                 <!-- If column has a specific template, use it -->
                 <ng-container
                   *ngTemplateOutlet="

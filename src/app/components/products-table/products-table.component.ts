@@ -76,7 +76,11 @@ export class ProductsTableComponent implements OnInit {
       width: '15%',
       // type: 'text',
       // template: this.codeInputCell(),
-      component: CodeInputCellComponent,
+      // component: CodeInputCellComponent,
+      component: () =>
+        import('../code-input-cell/code-input-cell.component').then(
+          (m) => m.CodeInputCellComponent,
+        ),
     },
     {
       field: 'name',
@@ -89,6 +93,7 @@ export class ProductsTableComponent implements OnInit {
       header: 'Category',
       faHeader: 'دسته',
       width: '20%',
+      type: 'select',
     },
     {
       field: 'quantity',

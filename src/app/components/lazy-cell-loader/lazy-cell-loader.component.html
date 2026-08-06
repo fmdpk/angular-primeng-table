@@ -1,0 +1,5 @@
+@if (resolvedComponent()) {
+  <ng-container
+    *ngComponentOutlet="resolvedComponent(); inputs: inputs"
+  ></ng-container>
+}

@@ -37,6 +37,7 @@ import {
   TableColumnDefinition,
   ValidatorFn,
 } from '../../models/batch-table.model';
+import { LazyCellLoaderComponent } from '../lazy-cell-loader/lazy-cell-loader.component';
 
 @Component({
   selector: 'app-batch-table',
@@ -53,6 +54,7 @@ import {
     MultiSelectModule,
     PopoverModule,
     RowHighlightDirective,
+    LazyCellLoaderComponent,
   ],
   providers: [ConfirmationService, MessageService],
   templateUrl: './batch-table.component.html',
