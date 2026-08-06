@@ -224,7 +224,16 @@
         @for (item of columns; track item.field) {
           <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
             @if (isRowEditing(row)) {
-              @if (item.template) {
+              @if (item.component) {
+                <ng-container
+                  *ngComponentOutlet="item.component; inputs: {
+                    row: row,
+                    column: item,
+                    table: this
+                  }"
+                ></ng-container>
+              }
+              @else if (item.template) {
                 <!-- If column has a specific template, use it -->
                 <ng-container
                   *ngTemplateOutlet="

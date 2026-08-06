@@ -30,6 +30,7 @@ import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { TableModule } from 'primeng/table';
+import { CodeInputCellComponent } from '../code-input-cell/code-input-cell.component';
 
 @Component({
   selector: 'app-products-table',
@@ -42,7 +43,7 @@ import { TableModule } from 'primeng/table';
     FormsModule,
     InputTextModule,
     SelectModule,
-    DialogModule, // <-- ADD
+    DialogModule,
     TableModule,
   ],
   templateUrl: './products-table.component.html',
@@ -73,10 +74,22 @@ export class ProductsTableComponent implements OnInit {
       header: 'Code',
       faHeader: 'کد',
       width: '15%',
-      template: this.codeInputCell(), // Attach template here!
+      // type: 'text',
+      // template: this.codeInputCell(),
+      component: CodeInputCellComponent,
     },
-    { field: 'name', header: 'Name', faHeader: 'نام', width: '25%' },
-    { field: 'category', header: 'Category', faHeader: 'دسته', width: '20%' },
+    {
+      field: 'name',
+      header: 'Name',
+      faHeader: 'نام',
+      width: '25%',
+    },
+    {
+      field: 'category',
+      header: 'Category',
+      faHeader: 'دسته',
+      width: '20%',
+    },
     {
       field: 'quantity',
       header: 'Quantity',
@@ -98,12 +111,6 @@ export class ProductsTableComponent implements OnInit {
   isDialogVisible = signal(false);
   selectedDialogRow = signal<any>(null);
   activeEditingRow = signal<any>(null);
-
-  dialogProducts = [
-    { id: 1, code: 'PRD-001', name: 'لپ تاپ' },
-    { id: 2, code: 'PRD-002', name: 'موس' },
-    { id: 3, code: 'PRD-003', name: 'کیبورد' },
-  ];
 
   private fb = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
@@ -146,28 +153,6 @@ export class ProductsTableComponent implements OnInit {
         JSON.parse(localStorage.getItem(this.selectedColumnsKey())!),
       );
     }
-  }
-
-  openProductDialog(row: any, table: any) {
-    this.activeEditingRow.set(row);
-    this.selectedDialogRow.set(null);
-    this.isDialogVisible.set(true);
-    // Mark field touched so validation shows if they try to save without selecting
-    table.markFieldTouched(row, 'code');
-  }
-
-  confirmDialogSelection() {
-    const row = this.activeEditingRow();
-    const selected = this.selectedDialogRow();
-    if (row && selected) {
-      // Simulate API response replacing the value
-      row['code'] = selected.code;
-
-      // Mark as touched again to re-validate the new value
-      // (Assuming batchTable is accessible, otherwise pass 'table' reference)
-      this.batchTable()?.markFieldTouched(row, 'code');
-    }
-    this.isDialogVisible.set(false);
   }
 
   // 1. Handle Header Form Submission

@@ -90,8 +90,8 @@
 <ng-template #customCellInput let-row let-column="column" let-table="table">
   <!-- Wrapper div to hold input and error message -->
   <div class="flex flex-col gap-1 w-full">
-    @switch (column.field) {
-      @case ("code") {
+    @switch (column.type) {
+      @case ("number") {
         <input
           pInputText
           type="number"
@@ -105,7 +105,7 @@
         />
       }
 
-      @case ("category") {
+      @case ("select") {
         <p-select
           [options]="categories"
           [ngModel]="row[column.field]"
@@ -149,7 +149,7 @@
     }
   </div>
 </ng-template>
-<ng-template #codeInputCell let-row let-column="column" let-table="table">
+<!-- <ng-template #codeInputCell let-row let-column="column" let-table="table">
   <div class="flex flex-col gap-1 w-full">
     <div class="relative w-full">
       <input
@@ -166,7 +166,7 @@
         "
         [style.padding-left]="'2rem'"
       />
-      <!-- Three dots icon -->
+
       <i
         class="pi pi-ellipsis-h absolute cursor-pointer text-color-secondary"
         style="left: 0.6rem; top: 50%; transform: translateY(-50%)"
@@ -183,7 +183,7 @@
     }
   </div>
 </ng-template>
-<!-- 2. Add the Dialog with the Table at the bottom of the component -->
+
 <p-dialog
   header="انتخاب محصول"
   [(visible)]="isDialogVisible"
@@ -228,4 +228,4 @@
       (onClick)="isDialogVisible.set(false)"
     />
   </ng-template>
-</p-dialog>
+</p-dialog> -->
