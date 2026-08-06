@@ -76,9 +76,9 @@
   }
 
   // keep rows from jumping too much when an error appears
-  td {
-    vertical-align: top;
-  }
+  // td {
+  //   vertical-align: top;
+  // }
 
   [dir="rtl"] .p-datatable-resizable-column {
     .p-column-resizer {

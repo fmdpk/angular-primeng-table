@@ -62,6 +62,7 @@ import { MessageService } from 'primeng/api';
       [headerFormTemplate]="headerForm"
       [editorInputTemplate]="customCellInput"
       [headerFormActionTemplate]="headerSubmit"
+      (rowEditConfirm)="onRowEditConfirm($event)"
     />
 
     <ng-template #headerForm let-col>
@@ -75,6 +76,9 @@ import { MessageService } from 'primeng/api';
                 [placeholder]="col.faHeader"
                 appendTo="body"
                 styleClass="w-full"
+                [overlayOptions]="{
+                  styleClass: 'p-custom-select-overlay',
+                }"
                 [style]="{ width: '100%' }"
                 [class.p-invalid]="
                   addRowForm.get(col.field)?.invalid &&
@@ -128,7 +132,7 @@ import { MessageService } from 'primeng/api';
     <!-- Inside products-table.component.ts template -->
     <ng-template #customCellInput let-row let-column="column" let-table="table">
       <!-- Wrapper div to hold input and error message -->
-      <div class="flex flex-column gap-1 w-full">
+      <div class="flex flex-col gap-1 w-full">
         @switch (column.field) {
           @case ('code') {
             <input
@@ -152,9 +156,12 @@ import { MessageService } from 'primeng/api';
                 onStandardChange(table, row, column.field, $event)
               "
               [placeholder]="column.faHeader"
-              appendTo="body"
+              [appendTo]="'body'"
               styleClass="w-full p-custom-select"
-              [style]="{ width: '100%' }"
+              [overlayOptions]="{
+                styleClass: 'p-custom-select-overlay',
+              }"
+              [style]="{ width: '100%', display: 'inline-flex' }"
               [class.p-invalid]="
                 addRowForm.get(column.field)?.invalid &&
                 addRowForm.get(column.field)?.touched
@@ -323,6 +330,7 @@ export class ProductsTableComponent implements OnInit {
     // Mimik API call: send number, get string
     console.log(`Sending to server: ${value}`);
 
+    this.loading.set(true);
     setTimeout(() => {
       // Server responds with a string
       const serverString = `Server-${value}`;
@@ -331,6 +339,7 @@ export class ProductsTableComponent implements OnInit {
       // PrimeNG will automatically reflect this in the <ng-template pTemplate="output">
       row[field] = serverString;
 
+      this.loading.set(false);
       // If you need to emit to parent, do it here
       console.log(`String from server emitted to parent: ${serverString}`);
     }, 200);
@@ -348,11 +357,13 @@ export class ProductsTableComponent implements OnInit {
     row['code'] = value;
     table.markFieldTouched(row, 'code'); // Mark touched immediately
 
+    this.loading.set(true);
     console.log(`Sending number to server: ${value}`);
     setTimeout(() => {
       const serverString = `Server-${value}`;
       row['code'] = serverString;
       table.markFieldTouched(row, 'code'); // Re-trigger validation after API updates the value
+      this.loading.set(false);
     }, 500);
   }
 
@@ -437,5 +448,20 @@ export class ProductsTableComponent implements OnInit {
 
   setColumnsToLocalStorage(cols: TableColumnDefinition<TableItem>[]) {
     localStorage.setItem(this.selectedColumnsKey(), JSON.stringify(cols));
+  }
+
+  onRowEditConfirm(event: { row: any; done: (success: boolean) => void }) {
+    console.log('Sending row to API for pre-check:', event.row);
+
+    this.loading.set(true);
+    // Mimic API call
+    setTimeout(() => {
+      // Simulate 80% success rate. Change to `true` to always succeed.
+      const success = Math.random() > 0.2;
+
+      // Call the done callback to notify the child component
+      event.done(success);
+      this.loading.set(false);
+    }, 500);
   }
 }

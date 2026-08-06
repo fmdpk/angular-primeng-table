@@ -37,7 +37,6 @@ import {
   TableColumnDefinition,
   ValidatorFn,
 } from '../../models/batch-table.model';
-import { TableItem } from '../../models/table-item';
 
 @Component({
   selector: 'app-batch-table',
@@ -114,6 +113,12 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   readonly pendingDeletes = signal<Set<string>>(new Set()); // 1. ADD THIS
   readonly dirtyKeys = signal<Set<string>>(new Set());
   readonly touched = signal<Map<string, Set<string>>>(new Map());
+  readonly editingRows = signal<Set<string>>(new Set());
+  readonly rowEditConfirm = output<{
+    row: T;
+    done: (success: boolean) => void;
+  }>();
+  readonly isAnyRowEditing = computed(() => this.editingRows().size > 0);
 
   readonly first = signal(0);
   readonly internalLoading = signal(false);
@@ -294,12 +299,16 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       this.pendingSortRestore.set(this.captureSortState());
       const onlyPaging = !sortChanged && !filterChanged;
 
-      if (this.hasAnyInvalidNewRow() || this.hasAnyInvalidRow()) {
+      if (
+        this.hasAnyInvalidNewRow() ||
+        this.hasAnyInvalidRow() ||
+        this.isAnyRowEditing()
+      ) {
         this.markAllRowsTouched();
         this.messageService.add({
           severity: 'warn',
           summary: 'توجه',
-          detail: 'لطفا تمامی موارد نادرست در جدول را برطرف کنید',
+          detail: 'لطفا تمامی موارد موجود در جدول را برطرف کنید',
         });
         if (sortChanged) this.restoreSortState();
         if (onlyPaging) this.restorePageState();
@@ -785,6 +794,20 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   };
 
   clear(table: Table) {
+    if (
+      this.hasAnyInvalidNewRow() ||
+      this.hasAnyInvalidRow() ||
+      this.totalPendingCount() > 0 ||
+      this.isAnyRowEditing()
+    ) {
+      this.markAllRowsTouched();
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'توجه',
+        detail: 'لطفا تمامی موارد موجود در جدول را برطرف کنید',
+      });
+      return;
+    }
     table.clear();
     this.globalFilterValue = '';
   }
@@ -1055,6 +1078,79 @@ export class BatchTableComponent<T extends Record<string, any> = any>
         if (key.startsWith(`${id}::`)) next.delete(key);
       });
       return next;
+    });
+  }
+
+  isRowEditing(row: BatchTableItem<T>): boolean {
+    return this.editingRows().has(this.buildRowKey(row));
+  }
+
+  startRowEdit(row: BatchTableItem<T>): void {
+    this.editingRows.update((set) => new Set(set).add(this.buildRowKey(row)));
+  }
+
+  cancelRowEdit(row: BatchTableItem<T>): void {
+    this.editingRows.update((set) => {
+      const next = new Set(set);
+      next.delete(this.buildRowKey(row));
+      return next;
+    });
+    this.undoRow(row); // Revert changes made during edit
+  }
+
+  confirmRowEdit(row: BatchTableItem<T>): void {
+    if (!this.isRowValid(row)) {
+      this.markAllRowsTouched();
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'توجه',
+        detail: 'لطفا موارد نادرست را برطرف کنید',
+      });
+      return;
+    }
+
+    // Check validation before allowing confirm
+    if (!this.isRowValid(row)) {
+      this.markAllRowsTouched();
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'توجه',
+        detail: 'لطفا موارد نادرست را برطرف کنید',
+      });
+      return;
+    }
+
+    // Emit to parent to make the API call
+    this.rowEditConfirm.emit({
+      row: row as T,
+      done: (success: boolean) => {
+        if (success) {
+          // Exit edit mode
+          this.editingRows.update((set) => {
+            const next = new Set(set);
+            next.delete(this.buildRowKey(row));
+            return next;
+          });
+
+          // Mark fields as dirty so it's included in the final batch save
+          this.columns().forEach((col) => {
+            this.updateCellValue(row, col.field, (row as any)[col.field]);
+          });
+
+          this.messageService.add({
+            severity: 'success',
+            summary: 'موفق',
+            detail: 'تغییرات برای ذخیره نهایی آماده شد',
+          });
+        } else {
+          // API failed: stay in edit mode
+          this.messageService.add({
+            severity: 'error',
+            summary: 'خطا',
+            detail: 'خطای سرور، ویرایش لغو نشد',
+          });
+        }
+      },
     });
   }
 }

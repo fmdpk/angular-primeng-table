@@ -26,20 +26,17 @@
     </div>
 
     <div>
-      @if (editedCount() > 0 || addedCount() > 0) {
+      @if (addedCount() > 0) {
         <span class="text-color-secondary">
-          @if (editedCount() > 0 && addedCount() > 0) {
-            {{ editedCount() }} تغییر ذخیره نشده و {{ addedCount() }} سطر اضافه
-            شده
-          } @else if (editedCount() > 0) {
-            {{ editedCount() }} تغییر ذخیره نشده
-          } @else {
-            {{ addedCount() }} سطر اضافه شده
-          }
+          {{ addedCount() }} سطر اضافه شده
+        </span>
+      }
+      @if (editedCount() > 0) {
+        <span class="text-color-secondary">
+          {{ editedCount() }} تغییر ذخیره نشده
         </span>
       }
 
-      <!-- Show deleted count and Undo button -->
       @if (deletedCount() > 0) {
         <span class="flex align-items-center gap-2 text-color-secondary">
           {{ deletedCount() }} سطر حذف شده
@@ -88,13 +85,20 @@
           placeholder="جست و جو کنید..."
           [ngModel]="globalFilterValue"
           (ngModelChange)="onGlobalFilter($event)"
+          [disabled]="
+            hasAnyInvalidNewRow() ||
+            hasAnyInvalidRow() ||
+            totalPendingCount() > 0 ||
+            isAnyRowEditing()
+          "
         />
         <div class="flex items-center justify-between gap-2">
           <p-multiselect
             [disabled]="
               hasAnyInvalidNewRow() ||
               hasAnyInvalidRow() ||
-              totalPendingCount() > 0
+              totalPendingCount() > 0 ||
+              isAnyRowEditing()
             "
             display="chip"
             [options]="columns()"
@@ -110,6 +114,12 @@
             [outlined]="true"
             icon="pi pi-filter-slash"
             (click)="clear(dt)"
+            [disabled]="
+              hasAnyInvalidNewRow() ||
+              hasAnyInvalidRow() ||
+              totalPendingCount() > 0 ||
+              isAnyRowEditing()
+            "
           />
         </div>
       </div>
@@ -212,118 +222,142 @@
           </td>
         }
         @for (item of columns; track item.field) {
-          <td
-            [pEditableColumn]="row"
-            [pEditableColumnField]="item.field"
-            [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }"
-          >
-            <p-cellEditor>
-              <ng-template pTemplate="input">
-                @if (editorInputTemplate()) {
-                  <ng-container
-                    *ngTemplateOutlet="
-                      editorInputTemplate();
-                      context: { $implicit: row, column: item, table: this }
-                    "
-                  ></ng-container>
-                } @else {
-                  <!-- Fallback to standard input if parent provides none -->
-                  <input
-                    pInputText
-                    type="text"
-                    [(ngModel)]="row[item.field]"
-                    class="w-full"
-                  />
-                }
-              </ng-template>
-
-              <ng-template pTemplate="output">
-                <div class="flex flex-col gap-1">
-                  <div
-                    class="flex align-items-center justify-content-between gap-1"
+          <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
+            @if (isRowEditing(row)) {
+              <!-- EDIT MODE: Inject the parent's custom input template -->
+              <ng-container
+                *ngTemplateOutlet="
+                  editorInputTemplate();
+                  context: { $implicit: row, column: item, table: this }
+                "
+              ></ng-container>
+            } @else {
+              <!-- VIEW MODE: Standard output -->
+              <div class="flex flex-col gap-1">
+                <div
+                  class="flex align-items-center justify-content-between gap-1"
+                >
+                  <span
+                    [ngClass]="{
+                      'fix-height': isCellDirty(row, item.field),
+                    }"
                   >
-                    <span
-                      [ngClass]="{
-                        'fix-height': isCellDirty(row, item.field),
-                      }"
-                      >{{ row[item.field] }}</span
-                    >
-                    @if (isCellDirty(row, item.field)) {
-                      <p-button
-                        icon="pi pi-undo"
-                        [rounded]="true"
-                        [text]="true"
-                        severity="secondary"
-                        size="small"
-                        (onClick)="
-                          undoCell(row, item.field); $event.stopPropagation()
-                        "
-                      />
-                    }
-                  </div>
-
-                  @if (
-                    isFieldTouched(row, item.field) &&
-                      getFieldError(row, item.field);
-                    as err
-                  ) {
-                    <small class="p-error text-xs">{{ err }}</small>
+                    {{ row[item.field] }}
+                  </span>
+                  @if (isCellDirty(row, item.field)) {
+                    <p-button
+                      icon="pi pi-undo"
+                      [rounded]="true"
+                      [text]="true"
+                      severity="secondary"
+                      size="small"
+                      (onClick)="
+                        undoCell(row, item.field); $event.stopPropagation()
+                      "
+                    />
                   }
                 </div>
-              </ng-template>
-            </p-cellEditor>
+                @if (
+                  isFieldTouched(row, item.field) &&
+                    getFieldError(row, item.field);
+                  as err
+                ) {
+                  <small class="p-error text-xs">{{ err }}</small>
+                }
+              </div>
+            }
           </td>
         }
 
         <td class="text-center">
-          <p-button
-            (click)="op.toggle($event)"
-            icon="pi pi-ellipsis-v"
-            [rounded]="true"
-            [text]="true"
-            [outlined]="true"
-          />
-          <p-popover #op appendTo="body">
-            @if (row._isNew) {
-              <div class="flex items-center justify-content-center gap-1">
-                <p-button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  [rounded]="true"
-                  [text]="true"
-                  size="small"
-                  (onClick)="deleteNewRow(row)"
-                />
-                <span class="text-color-secondary">حذف</span>
+          @if (isRowEditing(row)) {
+            <!-- Show Confirm/Cancel buttons when editing -->
+            <div class="flex flex-col gap-1">
+              <p-button
+                icon="pi pi-check"
+                severity="success"
+                [rounded]="true"
+                [text]="true"
+                size="small"
+                (onClick)="confirmRowEdit(row)"
+              />
+              <p-button
+                icon="pi pi-times"
+                severity="danger"
+                [rounded]="true"
+                [text]="true"
+                size="small"
+                (onClick)="cancelRowEdit(row)"
+              />
+            </div>
+          } @else {
+            <!-- Show standard menu when not editing -->
+            <p-button
+              (click)="op.toggle($event)"
+              icon="pi pi-ellipsis-v"
+              [rounded]="true"
+              [text]="true"
+              [outlined]="true"
+            />
+            <p-popover #op appendTo="body">
+              <!-- Add an Edit Row button to the popover -->
+              <div class="flex flex-col">
+                <div class="flex items-center justify-content-center gap-1">
+                  <p-button
+                    icon="pi pi-pencil"
+                    [rounded]="true"
+                    [text]="true"
+                    size="small"
+                    (onClick)="startRowEdit(row); op.hide()"
+                  />
+                  <span class="text-color-secondary">ویرایش سطر</span>
+                </div>
+
+                @if (row._isNew) {
+                  <div class="flex items-center justify-content-center gap-1">
+                    <p-button
+                      icon="pi pi-trash"
+                      severity="danger"
+                      [rounded]="true"
+                      [text]="true"
+                      size="small"
+                      (onClick)="deleteNewRow(row); op.hide()"
+                    />
+                    <span class="text-color-secondary">حذف</span>
+                  </div>
+                } @else if (isDirty(row)) {
+                  <div class="flex items-center justify-content-center gap-1">
+                    <p-button
+                      icon="pi pi-undo"
+                      [rounded]="true"
+                      [text]="true"
+                      severity="secondary"
+                      size="small"
+                      pTooltip="لغو تمامی تغییرات سطر"
+                      (onClick)="undoRow(row); op.hide()"
+                    />
+                    <span class="text-color-secondary">لغو تغییرات</span>
+                  </div>
+                }
+
+                @if (!row._isNew) {
+                  <div
+                    class="flex items-center justify-content-center gap-1 pt-2 border-top-1"
+                  >
+                    <p-button
+                      icon="pi pi-trash"
+                      severity="danger"
+                      [rounded]="true"
+                      [text]="true"
+                      size="small"
+                      (onClick)="confirmDeleteExistingRow(row, op)"
+                    />
+                    <span class="text-color-secondary">حذف سطر</span>
+                  </div>
+                }
               </div>
-            } @else if (isDirty(row)) {
-              <div class="flex items-center justify-content-center gap-1">
-                <p-button
-                  icon="pi pi-undo"
-                  [rounded]="true"
-                  [text]="true"
-                  severity="secondary"
-                  size="small"
-                  pTooltip="لغو تمامی تغییرات سطر"
-                  (onClick)="undoRow(row)"
-                />
-                <span class="text-color-secondary">لغو تغییرات</span>
-              </div>
-            } @else {
-              <!-- ADD OPTION TO DELETE EXISTING ROW -->
-              <div class="flex items-center justify-center gap-1">
-                <p-button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  [rounded]="true"
-                  [text]="true"
-                  size="small"
-                  (onClick)="confirmDeleteExistingRow(row, op)"
-                />
-                <span class="text-color-secondary">حذف</span>
-              </div>
-            }
-          </p-popover>
+            </p-popover>
+          }
         </td>
       </tr>
     </ng-template>
