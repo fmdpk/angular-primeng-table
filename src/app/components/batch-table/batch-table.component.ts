@@ -305,6 +305,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   }
 
   onSelectedColumnsChange(cols: TableColumnDefinition<T>[]): void {
+    if(this.loading()) return;
     if (!cols?.length) {
       this.selectedColumns.set([...this.columns()]);
     } else {
@@ -386,6 +387,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   // ---------- Global filter ----------
   private globalFilterTimeout?: ReturnType<typeof setTimeout>;
   onGlobalFilter(value: string): void {
+    if(this.loading()) return;
     clearTimeout(this.globalFilterTimeout);
     const previous = this.globalFilterValue;
     this.globalFilterValue = value ?? '';
@@ -535,7 +537,12 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     if (this.totalPendingCount() === 0) return;
 
     setTimeout(() => {
-      if (this.hasAnyInvalidNewRow() || this.hasAnyInvalidRow() || this.hasRowOrderChanged() || this.isAnyRowEditing()) {
+      if (
+        this.hasAnyInvalidNewRow() ||
+        this.hasAnyInvalidRow() ||
+        this.hasRowOrderChanged() ||
+        this.isAnyRowEditing()
+      ) {
         this.markAllRowsTouched();
         this.messageService.add({
           severity: 'warn',
@@ -550,7 +557,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
         message: this.saveConfirmMessage(),
         header: 'ذخیره تغییرات',
         acceptButtonProps: {
-          severity: 'success'
+          severity: 'success',
         },
         acceptButtonStyleClass: 'p-button-success',
         acceptLabel: 'ذخیره',
@@ -831,7 +838,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       this.hasAnyInvalidNewRow() ||
       this.hasAnyInvalidRow() ||
       this.totalPendingCount() > 0 ||
-      this.isAnyRowEditing()
+      this.isAnyRowEditing() ||
+      this.loading()
     ) {
       this.markAllRowsTouched();
       this.messageService.add({
