@@ -20,7 +20,6 @@ import { isPlatformBrowser } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import {
   FormBuilder,
-  FormGroup,
   FormsModule,
   ReactiveFormsModule,
   Validators,
@@ -53,9 +52,9 @@ export class ProductsTableComponent implements OnInit {
   @ViewChild('headerForm') headerForm!: TemplateRef<any>;
   @ViewChild('customCellInput') customCellInput!: TemplateRef<any>;
 
-  readonly codeInputCell = viewChild('codeInputCell', {
-    read: TemplateRef,
-  });
+  // readonly codeInputCell = viewChild('codeInputCell', {
+  //   read: TemplateRef,
+  // });
 
   readonly selectedColumnsKey = signal('PRODUCT_TABLE_SELECTED_COLUMNS');
   readonly page = signal<TableItem[]>([]);

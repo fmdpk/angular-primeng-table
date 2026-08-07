@@ -106,7 +106,8 @@
               hasAnyInvalidRow() ||
               totalPendingCount() > 0 ||
               isAnyRowEditing() ||
-              hasRowOrderChanged()
+              hasRowOrderChanged() ||
+              loading()
             "
           />
           <div class="flex items-center justify-between gap-2">
@@ -116,7 +117,8 @@
                 hasAnyInvalidRow() ||
                 totalPendingCount() > 0 ||
                 isAnyRowEditing() ||
-                hasRowOrderChanged()
+                hasRowOrderChanged() ||
+                loading()
               "
               display="chip"
               [options]="columns()"
@@ -137,7 +139,8 @@
                 hasAnyInvalidRow() ||
                 totalPendingCount() > 0 ||
                 isAnyRowEditing() ||
-                hasRowOrderChanged()
+                hasRowOrderChanged() ||
+                loading()
               "
             />
           </div>
