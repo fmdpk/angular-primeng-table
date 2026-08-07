@@ -112,9 +112,9 @@ export class ProductsTableComponent implements OnInit {
 
   // 1. Add categories for the select dropdown
   categories = ['دسته 1', 'دسته 2', 'دسته 3'];
-  isDialogVisible = signal(false);
-  selectedDialogRow = signal<any>(null);
-  activeEditingRow = signal<any>(null);
+  // isDialogVisible = signal(false);
+  // selectedDialogRow = signal<any>(null);
+  // activeEditingRow = signal<any>(null);
 
   private fb = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
@@ -381,4 +381,33 @@ export class ProductsTableComponent implements OnInit {
       this.loading.set(false);
     }, 500);
   }
+
+  dialogProducts = [
+    { id: 1, code: 'PRD-001', name: 'لپ تاپ' },
+    { id: 2, code: 'PRD-002', name: 'موس' },
+    { id: 3, code: 'PRD-003', name: 'کیبورد' },
+  ];
+
+  // how to give column cell a template reference to open a dialog and select a value from the dialog and set it to the cell value
+  // openProductDialog(row: any, table: any) {
+  //   this.activeEditingRow.set(row);
+  //   this.selectedDialogRow.set(null);
+  //   this.isDialogVisible.set(true);
+  //   // Mark field touched so validation shows if they try to save without selecting
+  //   table.markFieldTouched(row, 'code');
+  // }
+
+  // confirmDialogSelection() {
+  //   const row = this.activeEditingRow();
+  //   const selected = this.selectedDialogRow();
+  //   if (row && selected) {
+  //     // Simulate API response replacing the value
+  //     row['code'] = selected.code;
+
+  //     // Mark as touched again to re-validate the new value
+  //     // (Assuming batchTable is accessible, otherwise pass 'table' reference)
+  //     this.batchTable()?.markFieldTouched(row, 'code');
+  //   }
+  //   this.isDialogVisible.set(false);
+  // }
 }
