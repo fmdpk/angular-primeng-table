@@ -535,7 +535,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     if (this.totalPendingCount() === 0) return;
 
     setTimeout(() => {
-      if (this.hasAnyInvalidNewRow() || this.hasAnyInvalidRow()) {
+      if (this.hasAnyInvalidNewRow() || this.hasAnyInvalidRow() || this.hasRowOrderChanged() || this.isAnyRowEditing()) {
         this.markAllRowsTouched();
         this.messageService.add({
           severity: 'warn',
@@ -549,6 +549,10 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       this.confirmationService.confirm({
         message: this.saveConfirmMessage(),
         header: 'ذخیره تغییرات',
+        acceptButtonProps: {
+          severity: 'success'
+        },
+        acceptButtonStyleClass: 'p-button-success',
         acceptLabel: 'ذخیره',
         rejectLabel: 'لغو',
         closable: false,
@@ -567,11 +571,6 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     const creates = this.collectCreates();
     const deletes = Array.from(this.pendingDeletes());
     const rowOrder = this.pendingRowOrder() ?? [];
-
-    console.log(updates);
-    console.log(creates);
-    console.log(deletes);
-    console.log(rowOrder);
 
     this.save.emit({
       updates,
@@ -626,7 +625,6 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   private collectCreates(): T[] {
     return this.pendingNewRows().map((row, index) => {
       const { _isNew, _original, ...core } = row as any;
-      console.log(core);
       return { ...core } as T;
     });
   }
@@ -849,16 +847,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   // ---------- Column reorder ----------
   onColReorder(event: TableColumnReorderEvent): void {
-    const dragIndex = event.dragIndex;
-    const dropIndex = event.dropIndex;
-    if (dragIndex == null || dropIndex == null || dragIndex === dropIndex) {
-      return;
-    }
-    const next = [...this.selectedColumns()];
-    const [moved] = next.splice(dragIndex, 1);
-    next.splice(dropIndex, 0, moved);
-    this.selectedColumns.set(next);
-    this.columnsReorder.emit(next);
+    this.columnsReorder.emit(event.columns!);
   }
 
   // ---------- RTL resize patch ----------

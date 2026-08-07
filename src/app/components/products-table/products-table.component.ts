@@ -30,7 +30,6 @@ import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { TableModule } from 'primeng/table';
-import { CodeInputCellComponent } from '../code-input-cell/code-input-cell.component';
 
 @Component({
   selector: 'app-products-table',
@@ -154,9 +153,40 @@ export class ProductsTableComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.isBrowser) {
-      this.initialSelectedColumns.set(
-        JSON.parse(localStorage.getItem(this.selectedColumnsKey())!),
-      );
+      this.restoreColumns();
+    }
+  }
+
+  restoreColumns() {
+    const savedFieldsStr = localStorage.getItem(this.selectedColumnsKey());
+    const allColumns = this.columns();
+
+    if (savedFieldsStr) {
+      try {
+        const savedFields = JSON.parse(savedFieldsStr) as string[];
+
+        // 1. Reconstruct the full column objects in the saved order
+        const reconstructedColumns = savedFields
+          .map((field) => allColumns.find((col) => col.field === field))
+          .filter(
+            (col) => col !== undefined,
+          ) as TableColumnDefinition<TableItem>[];
+
+        // 2. Append any new columns that were added to the code but aren't in localStorage yet
+        allColumns.forEach((col) => {
+          if (!reconstructedColumns.find((c) => c.field === col.field)) {
+            reconstructedColumns.push(col);
+          }
+        });
+
+        this.initialSelectedColumns.set(reconstructedColumns);
+      } catch (e) {
+        // Fallback to default columns if JSON is corrupted
+        this.initialSelectedColumns.set(allColumns);
+      }
+    } else {
+      // First time loading, use default order
+      this.initialSelectedColumns.set(allColumns);
     }
   }
 
@@ -173,7 +203,6 @@ export class ProductsTableComponent implements OnInit {
     }
 
     const formValue = this.addRowForm.value;
-    console.log('Form value:', formValue);
     this.loading.set(true);
 
     setTimeout(() => {
@@ -183,7 +212,6 @@ export class ProductsTableComponent implements OnInit {
       const table = this.batchTable();
       if (table) {
         table.addDraftRow(serverResponse);
-        console.log('Draft row added to table!');
         this.loading.set(false);
       } else {
         console.error('BatchTable component not found!');
@@ -205,62 +233,53 @@ export class ProductsTableComponent implements OnInit {
     return 'مقدار نامعتبر است';
   }
 
-  // 2. Handle Custom Cell Input Change (The number -> string API scenario)
-  onCustomCellChange(row: any, field: string, value: any) {
-    // Mimik API call: send number, get string
-    console.log(`Sending to server: ${value}`);
+  onCustomCellChange(
+    table: any,
+    row: any,
+    field: string,
+    value: any,
+    hasServerValidation?: boolean,
+  ) {
+    if (!hasServerValidation) {
+      row[field] = value;
+      return;
+    }
 
     this.loading.set(true);
     setTimeout(() => {
-      // Server responds with a string
+      value = value.replace('Server-', '');
       const serverString = `Server-${value}`;
 
-      // Update the row object directly.
-      // PrimeNG will automatically reflect this in the <ng-template pTemplate="output">
       row[field] = serverString;
-
+      table.markFieldTouched(row, field);
       this.loading.set(false);
-      // If you need to emit to parent, do it here
-      console.log(`String from server emitted to parent: ${serverString}`);
     }, 200);
   }
 
-  // 1. Handle standard text/number/dropdown changes
   onStandardChange(table: any, row: any, field: string, value: any) {
     row[field] = value;
-    // Mark as touched so validation checks run immediately
     table.markFieldTouched(row, field);
   }
 
-  // 2. Handle the specific Number -> Server -> String scenario
-  onCodeChange(table: any, row: any, value: number) {
-    row['code'] = value;
-    table.markFieldTouched(row, 'code'); // Mark touched immediately
-
+  onApiFieldChange(table: any, row: any, field: string, value: any) {
+    row[field] = value;
     this.loading.set(true);
-    console.log(`Sending number to server: ${value}`);
     setTimeout(() => {
-      const serverString = `Server-${value}`;
-      row['code'] = serverString;
-      table.markFieldTouched(row, 'code'); // Re-trigger validation after API updates the value
+      table.markFieldTouched(row, field);
       this.loading.set(false);
     }, 500);
   }
 
   onLazyLoad(event: any) {
     this.loading.set(true);
-    // Call your API, then:
-    // this.page.set(result.data);
-    // this.total.set(result.total);
     setTimeout(() => {
-
       this.loading.set(false);
-    }, 500); // Simulate API delay
+    }, 500);
   }
 
   onSave(event: BatchSaveEvent<TableItem>) {
+    this.loading.set(true);
     setTimeout(() => {
-      console.log(event)
       const deletedIds = new Set(event.deletes);
       const updatesMap = new Map(event.updates.map((u: any) => [u.id, u]));
 
@@ -283,9 +302,7 @@ export class ProductsTableComponent implements OnInit {
         }
       });
 
-      // 2. Translate the rowOrder array
       const translatedRowOrder = event.rowOrder.map((id) => {
-        // If the ID was a tempId, replace it with the new real ID. Otherwise, keep it as is.
         return tempIdToRealId.get(String(id)) ?? String(id);
       });
 
@@ -297,7 +314,6 @@ export class ProductsTableComponent implements OnInit {
           const idB = String(b.id);
           const idxA = translatedRowOrder.indexOf(idA);
           const idxB = translatedRowOrder.indexOf(idB);
-          // If an ID isn't found in rowOrder, push it to the end
           return (
             (idxA === -1 ? Infinity : idxA) - (idxB === -1 ? Infinity : idxB)
           );
@@ -309,12 +325,11 @@ export class ProductsTableComponent implements OnInit {
         return cleanRow;
       });
 
-      console.log(cleanFinalData);
-
       this.page.set(cleanFinalData);
       this.total.set(this.page().length);
 
       event.done(true);
+      this.loading.set(false);
     }, 500);
   }
 
@@ -353,19 +368,15 @@ export class ProductsTableComponent implements OnInit {
   }
 
   setColumnsToLocalStorage(cols: TableColumnDefinition<TableItem>[]) {
-    localStorage.setItem(this.selectedColumnsKey(), JSON.stringify(cols));
+    const fields = cols.map((col) => col.field);
+    localStorage.setItem(this.selectedColumnsKey(), JSON.stringify(fields));
   }
 
   onRowEditConfirm(event: { row: any; done: (success: boolean) => void }) {
-    console.log('Sending row to API for pre-check:', event.row);
-
     this.loading.set(true);
-    // Mimic API call
     setTimeout(() => {
-      // Simulate 80% success rate. Change to `true` to always succeed.
       const success = Math.random() > 0.2;
 
-      // Call the done callback to notify the child component
       event.done(success);
       this.loading.set(false);
     }, 500);

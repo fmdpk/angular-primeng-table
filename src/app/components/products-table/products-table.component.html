@@ -96,7 +96,7 @@
           pInputText
           type="number"
           [ngModel]="row[column.field]"
-          (ngModelChange)="onCodeChange(table, row, $event)"
+          (ngModelChange)="onApiFieldChange(table, row, column.field, $event)"
           class="w-full"
           [class.p-invalid]="
             table.isFieldTouched(row, column.field) &&
@@ -129,7 +129,7 @@
           pInputText
           type="text"
           [ngModel]="row[column.field]"
-          (ngModelChange)="onStandardChange(table, row, column.field, $event)"
+          (ngModelChange)="onCustomCellChange(table, row, column.field, $event, column.hasServerValidation)"
           class="w-full"
           [class.p-invalid]="
             table.isFieldTouched(row, column.field) &&

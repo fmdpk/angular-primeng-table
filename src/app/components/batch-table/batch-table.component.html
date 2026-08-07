@@ -67,71 +67,40 @@
     </div>
   </div>
 
-  @if(isBrowser){
+  @if (isBrowser) {
     <p-table
-    #dt
-    [dir]="dir()"
-    [value]="tableValue()"
-    [lazy]="true"
-    [paginator]="tableValue().length > rows()"
-    [rows]="rows()"
-    [rowTrackBy]="trackByFn"
-    [columns]="selectedColumns()"
-    [totalRecords]="totalRecords()"
-    [first]="first()"
-    [loading]="loading()"
-    [customSort]="true"
-    [dataKey]="keyField()"
-    [sortMode]="'multiple'"
-    [reorderableColumns]="allowReorder()"
-    [scrollable]="true"
-    [scrollHeight]="scrollHeight()"
-    [resizableColumns]="true"
-    (onLazyLoad)="loadPage($event)"
-    (onEditComplete)="onCellEditComplete($event)"
-    (onColReorder)="onColReorder($event)"
-    (onRowReorder)="onRowReorder($event)"
-    [tableStyle]="{ 'min-width': '50rem', 'table-layout': 'fixed' }"
-  >
-    <ng-template pTemplate="caption">
-      <div class="flex items-center justify-between">
-        <input
-          pInputText
-          type="text"
-          placeholder="جست و جو کنید..."
-          [ngModel]="globalFilterValue"
-          (ngModelChange)="onGlobalFilter($event)"
-          [disabled]="
-            hasAnyInvalidNewRow() ||
-            hasAnyInvalidRow() ||
-            totalPendingCount() > 0 ||
-            isAnyRowEditing() ||
-            hasRowOrderChanged()
-          "
-        />
-        <div class="flex items-center justify-between gap-2">
-          <p-multiselect
-            [disabled]="
-              hasAnyInvalidNewRow() ||
-              hasAnyInvalidRow() ||
-              totalPendingCount() > 0 ||
-              isAnyRowEditing() ||
-              hasRowOrderChanged()
-            "
-            display="chip"
-            [options]="columns()"
-            [ngModel]="selectedColumns()"
-            (ngModelChange)="onSelectedColumnsChange($event)"
-            optionLabel="faHeader"
-            selectedItemsLabel="{0} ستون انتخاب شده"
-            [style]="{ 'min-width': '200px' }"
-            placeholder="ستون ها را انتخاب کنید"
-          />
-          <p-button
-            label="پاک کردن"
-            [outlined]="true"
-            icon="pi pi-filter-slash"
-            (click)="clear(dt)"
+      #dt
+      [dir]="dir()"
+      [value]="tableValue()"
+      [lazy]="true"
+      [paginator]="tableValue().length > rows()"
+      [rows]="rows()"
+      [rowTrackBy]="trackByFn"
+      [columns]="selectedColumns()"
+      [totalRecords]="totalRecords()"
+      [first]="first()"
+      [loading]="loading()"
+      [customSort]="true"
+      [dataKey]="keyField()"
+      [sortMode]="'multiple'"
+      [reorderableColumns]="allowReorder()"
+      [scrollable]="true"
+      [scrollHeight]="scrollHeight()"
+      [resizableColumns]="true"
+      (onLazyLoad)="loadPage($event)"
+      (onEditComplete)="onCellEditComplete($event)"
+      (onColReorder)="onColReorder($event)"
+      (onRowReorder)="onRowReorder($event)"
+      [tableStyle]="{ 'min-width': '50rem', 'table-layout': 'fixed' }"
+    >
+      <ng-template pTemplate="caption">
+        <div class="flex items-center justify-between">
+          <input
+            pInputText
+            type="text"
+            placeholder="جست و جو کنید..."
+            [ngModel]="globalFilterValue"
+            (ngModelChange)="onGlobalFilter($event)"
             [disabled]="
               hasAnyInvalidNewRow() ||
               hasAnyInvalidRow() ||
@@ -140,277 +109,328 @@
               hasRowOrderChanged()
             "
           />
-        </div>
-      </div>
-    </ng-template>
-
-    <ng-template pTemplate="header" let-columns>
-      <tr>
-        @if (allowReorder()) {
-          <th style="width: 46px"></th>
-        }
-        @for (item of columns; track item.field) {
-          <th
-            [pSortableColumn]="item.field"
-            [style.width]="item.width || '20%'"
-            pReorderableColumn
-            pResizableColumn
-          >
-            {{ item.faHeader }}
-            <p-sortIcon [field]="item.field" />
-            <p-columnFilter
-              type="text"
-              [field]="item.field"
-              display="menu"
-              [matchMode]="'contains'"
-              [showOperator]="false"
-              [showAddButton]="false"
-              [showMatchModes]="false"
-            />
-          </th>
-        }
-        <th style="width: 4rem" pResizableColumn pReorderableColumn></th>
-      </tr>
-      <!-- ADD THE FORM IN A NEW TR -> TD -->
-      @if (headerFormTemplate()) {
-        <tr>
-          <!-- Empty header for the reorder icon column -->
-          @if (allowReorder()) {
-            <th
-              class="p-1"
-              style="
-                border-top: 1px solid var(--surface-200);
-                background-color: var(--surface-card);
+          <div class="flex items-center justify-between gap-2">
+            <p-multiselect
+              [disabled]="
+                hasAnyInvalidNewRow() ||
+                hasAnyInvalidRow() ||
+                totalPendingCount() > 0 ||
+                isAnyRowEditing() ||
+                hasRowOrderChanged()
               "
-            ></th>
-          }
+              display="chip"
+              [options]="columns()"
+              [ngModel]="selectedColumns()"
+              (ngModelChange)="onSelectedColumnsChange($event)"
+              optionLabel="faHeader"
+              selectedItemsLabel="{0} ستون انتخاب شده"
+              [style]="{ 'min-width': '200px' }"
+              placeholder="ستون ها را انتخاب کنید"
+            />
+            <p-button
+              label="پاک کردن"
+              [outlined]="true"
+              icon="pi pi-filter-slash"
+              (click)="clear(dt)"
+              [disabled]="
+                hasAnyInvalidNewRow() ||
+                hasAnyInvalidRow() ||
+                totalPendingCount() > 0 ||
+                isAnyRowEditing() ||
+                hasRowOrderChanged()
+              "
+            />
+          </div>
+        </div>
+      </ng-template>
 
-          <!-- Loop through columns and create a <th> for each -->
+      <ng-template pTemplate="header" let-columns>
+        <tr>
+          @if (allowReorder()) {
+            <th style="width: 46px"></th>
+          }
           @for (item of columns; track item.field) {
             <th
-              class="p-1"
+              [pSortableColumn]="item.field"
+              [style.width]="item.width || '20%'"
+              pReorderableColumn
+              pResizableColumn
+            >
+              {{ item.faHeader }}
+              <p-sortIcon [field]="item.field" />
+              <p-columnFilter
+                type="text"
+                [field]="item.field"
+                display="menu"
+                [matchMode]="'contains'"
+                [showOperator]="false"
+                [showAddButton]="false"
+                [showMatchModes]="false"
+              />
+            </th>
+          }
+          <th style="width: 4rem" pResizableColumn pReorderableColumn></th>
+        </tr>
+        <!-- ADD THE FORM IN A NEW TR -> TD -->
+        @if (headerFormTemplate()) {
+          <tr>
+            <!-- Empty header for the reorder icon column -->
+            @if (allowReorder()) {
+              <th
+                class="p-1"
+                style="
+                  border-top: 1px solid var(--surface-200);
+                  background-color: var(--surface-card);
+                "
+              ></th>
+            }
+
+            <!-- Loop through columns and create a <th> for each -->
+            @for (item of columns; track item.field) {
+              <th
+                class="p-1"
+                style="
+                  border-top: 1px solid var(--surface-200);
+                  background-color: var(--surface-card);
+                  white-space: normal;
+                  overflow: visible;
+                "
+              >
+                <!-- Inject the parent's template, passing the column definition -->
+                <ng-container
+                  *ngTemplateOutlet="
+                    headerFormTemplate();
+                    context: { $implicit: item }
+                  "
+                ></ng-container>
+              </th>
+            }
+
+            <!-- Final <th> for the submit button -->
+            <th
+              class="p-1 text-center"
               style="
                 border-top: 1px solid var(--surface-200);
                 background-color: var(--surface-card);
-                white-space: normal;
-                overflow: visible;
               "
             >
-              <!-- Inject the parent's template, passing the column definition -->
-              <ng-container
-                *ngTemplateOutlet="
-                  headerFormTemplate();
-                  context: { $implicit: item }
-                "
-              ></ng-container>
-            </th>
-          }
-
-          <!-- Final <th> for the submit button -->
-          <th
-            class="p-1 text-center"
-            style="
-              border-top: 1px solid var(--surface-200);
-              background-color: var(--surface-card);
-            "
-          >
-            @if (headerFormActionTemplate()) {
-              <ng-container
-                *ngTemplateOutlet="headerFormActionTemplate()"
-              ></ng-container>
-            }
-          </th>
-        </tr>
-      }
-    </ng-template>
-
-    <ng-template
-      pTemplate="body"
-      let-row
-      let-columns="columns"
-      let-index="rowIndex"
-    >
-      <tr
-        [class.row-new]="row._isNew"
-        [appRowHighlight]="isDirty(row)"
-        [pReorderableRow]="index"
-      >
-        @if (allowReorder()) {
-          <td>
-            <span class="pi pi-bars" pReorderableRowHandle></span>
-          </td>
-        }
-        @for (item of columns; track item.field) {
-          <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
-            @if (isRowEditing(row)) {
-              @if (item.component) {
-                <app-lazy-cell-loader
-                  [component]="item.component"
-                  [inputs]="{ row: row, column: item, table: this }"
-                ></app-lazy-cell-loader>
-              } @else if (item.template) {
-                <!-- If column has a specific template, use it -->
+              @if (headerFormActionTemplate()) {
                 <ng-container
-                  *ngTemplateOutlet="
-                    item.template;
-                    context: { $implicit: row, column: item, table: this }
-                  "
-                ></ng-container>
-              } @else {
-                <!-- Fallback to the global editorInputTemplate -->
-                <ng-container
-                  *ngTemplateOutlet="
-                    editorInputTemplate();
-                    context: { $implicit: row, column: item, table: this }
-                  "
+                  *ngTemplateOutlet="headerFormActionTemplate()"
                 ></ng-container>
               }
-            } @else {
-              <!-- VIEW MODE: Standard output -->
-              <div class="flex flex-col gap-1">
-                <div
-                  class="flex align-items-center justify-content-between gap-1"
-                >
-                  <span
-                    [ngClass]="{
-                      'fix-height': isCellDirty(row, item.field),
-                    }"
+            </th>
+          </tr>
+        }
+      </ng-template>
+
+      <ng-template
+        pTemplate="body"
+        let-row
+        let-columns="columns"
+        let-index="rowIndex"
+      >
+        <tr
+          [class.row-new]="row._isNew"
+          [appRowHighlight]="isDirty(row)"
+          [pReorderableRow]="index"
+        >
+          @if (allowReorder()) {
+            <td>
+              <span class="pi pi-bars" pReorderableRowHandle></span>
+            </td>
+          }
+          @for (item of columns; track item.field) {
+            <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
+              @if (isRowEditing(row)) {
+                @if (item.component) {
+                  <app-lazy-cell-loader
+                    [component]="item.component"
+                    [inputs]="{ row: row, column: item, table: this }"
+                  ></app-lazy-cell-loader>
+                } @else if (item.template) {
+                  <!-- If column has a specific template, use it -->
+                  <ng-container
+                    *ngTemplateOutlet="
+                      item.template;
+                      context: { $implicit: row, column: item, table: this }
+                    "
+                  ></ng-container>
+                } @else {
+                  <!-- Fallback to the global editorInputTemplate -->
+                  <ng-container
+                    *ngTemplateOutlet="
+                      editorInputTemplate();
+                      context: { $implicit: row, column: item, table: this }
+                    "
+                  ></ng-container>
+                }
+              } @else {
+                <!-- VIEW MODE: Standard output -->
+                <div class="flex flex-col gap-1">
+                  <div
+                    class="flex align-items-center justify-content-between gap-1"
                   >
-                    {{ row[item.field] }}
-                  </span>
-                  @if (isCellDirty(row, item.field)) {
-                    <p-button
-                      icon="pi pi-undo"
-                      [rounded]="true"
-                      [text]="true"
-                      severity="secondary"
-                      size="small"
-                      (onClick)="
-                        undoCell(row, item.field); $event.stopPropagation()
-                      "
-                    />
+                    <span
+                      [ngClass]="{
+                        'fix-height': isCellDirty(row, item.field),
+                      }"
+                    >
+                      {{ row[item.field] }}
+                    </span>
+                    @if (isCellDirty(row, item.field)) {
+                      <p-button
+                        icon="pi pi-undo"
+                        [rounded]="true"
+                        [text]="true"
+                        severity="secondary"
+                        size="small"
+                        (onClick)="
+                          undoCell(row, item.field); $event.stopPropagation()
+                        "
+                      />
+                    }
+                  </div>
+                  @if (
+                    isFieldTouched(row, item.field) &&
+                      getFieldError(row, item.field);
+                    as err
+                  ) {
+                    <small class="p-error text-xs">{{ err }}</small>
                   }
                 </div>
-                @if (
-                  isFieldTouched(row, item.field) &&
-                    getFieldError(row, item.field);
-                  as err
-                ) {
-                  <small class="p-error text-xs">{{ err }}</small>
-                }
+              }
+            </td>
+          }
+
+          <td class="text-center">
+            @if (isRowEditing(row)) {
+              <!-- Show Confirm/Cancel buttons when editing -->
+              <div class="flex flex-col gap-1">
+                <p-button
+                  icon="pi pi-check"
+                  severity="success"
+                  [rounded]="true"
+                  [text]="true"
+                  size="small"
+                  (onClick)="confirmRowEdit(row)"
+                />
+                <p-button
+                  icon="pi pi-times"
+                  severity="danger"
+                  [rounded]="true"
+                  [text]="true"
+                  size="small"
+                  (onClick)="cancelRowEdit(row)"
+                />
               </div>
+            } @else {
+              <!-- Show standard menu when not editing -->
+              <p-button
+                (click)="op.toggle($event)"
+                icon="pi pi-ellipsis-v"
+                [rounded]="true"
+                [text]="true"
+                [outlined]="true"
+              />
+              <p-popover #op appendTo="body">
+                <!-- Add an Edit Row button to the popover -->
+                <div class="flex flex-col">
+                  <div class="flex items-center justify-content-center gap-1">
+                    <p-button
+                      icon="pi pi-pencil"
+                      [rounded]="true"
+                      [text]="true"
+                      size="small"
+                      (onClick)="startRowEdit(row); op.hide()"
+                    />
+                    <span class="text-color-secondary">ویرایش سطر</span>
+                  </div>
+
+                  @if (row._isNew) {
+                    <div class="flex items-center justify-content-center gap-1">
+                      <p-button
+                        icon="pi pi-trash"
+                        severity="danger"
+                        [rounded]="true"
+                        [text]="true"
+                        size="small"
+                        (onClick)="deleteNewRow(row); op.hide()"
+                      />
+                      <span class="text-color-secondary">حذف</span>
+                    </div>
+                  } @else if (isDirty(row)) {
+                    <div class="flex items-center justify-content-center gap-1">
+                      <p-button
+                        icon="pi pi-undo"
+                        [rounded]="true"
+                        [text]="true"
+                        severity="secondary"
+                        size="small"
+                        pTooltip="لغو تمامی تغییرات سطر"
+                        (onClick)="undoRow(row); op.hide()"
+                      />
+                      <span class="text-color-secondary">لغو تغییرات</span>
+                    </div>
+                  }
+
+                  @if (!row._isNew) {
+                    <div
+                      class="flex items-center justify-content-center gap-1 pt-2 border-top-1"
+                    >
+                      <p-button
+                        icon="pi pi-trash"
+                        severity="danger"
+                        [rounded]="true"
+                        [text]="true"
+                        size="small"
+                        (onClick)="confirmDeleteExistingRow(row, op)"
+                      />
+                      <span class="text-color-secondary">حذف سطر</span>
+                    </div>
+                  }
+                </div>
+              </p-popover>
             }
           </td>
-        }
+        </tr>
+      </ng-template>
 
-        <td class="text-center">
-          @if (isRowEditing(row)) {
-            <!-- Show Confirm/Cancel buttons when editing -->
-            <div class="flex flex-col gap-1">
-              <p-button
-                icon="pi pi-check"
-                severity="success"
-                [rounded]="true"
-                [text]="true"
-                size="small"
-                (onClick)="confirmRowEdit(row)"
-              />
-              <p-button
-                icon="pi pi-times"
-                severity="danger"
-                [rounded]="true"
-                [text]="true"
-                size="small"
-                (onClick)="cancelRowEdit(row)"
-              />
-            </div>
-          } @else {
-            <!-- Show standard menu when not editing -->
-            <p-button
-              (click)="op.toggle($event)"
-              icon="pi pi-ellipsis-v"
-              [rounded]="true"
-              [text]="true"
-              [outlined]="true"
-            />
-            <p-popover #op appendTo="body">
-              <!-- Add an Edit Row button to the popover -->
-              <div class="flex flex-col">
-                <div class="flex items-center justify-content-center gap-1">
-                  <p-button
-                    icon="pi pi-pencil"
-                    [rounded]="true"
-                    [text]="true"
-                    size="small"
-                    (onClick)="startRowEdit(row); op.hide()"
-                  />
-                  <span class="text-color-secondary">ویرایش سطر</span>
-                </div>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td
+            [attr.colspan]="
+              selectedColumns().length + (allowReorder() ? 1 : 0) + 1
+            "
+            class="text-center"
+          >
+            {{ emptyMessage() }}
+          </td>
+        </tr>
+      </ng-template>
 
-                @if (row._isNew) {
-                  <div class="flex items-center justify-content-center gap-1">
-                    <p-button
-                      icon="pi pi-trash"
-                      severity="danger"
-                      [rounded]="true"
-                      [text]="true"
-                      size="small"
-                      (onClick)="deleteNewRow(row); op.hide()"
-                    />
-                    <span class="text-color-secondary">حذف</span>
-                  </div>
-                } @else if (isDirty(row)) {
-                  <div class="flex items-center justify-content-center gap-1">
-                    <p-button
-                      icon="pi pi-undo"
-                      [rounded]="true"
-                      [text]="true"
-                      severity="secondary"
-                      size="small"
-                      pTooltip="لغو تمامی تغییرات سطر"
-                      (onClick)="undoRow(row); op.hide()"
-                    />
-                    <span class="text-color-secondary">لغو تغییرات</span>
-                  </div>
-                }
-
-                @if (!row._isNew) {
-                  <div
-                    class="flex items-center justify-content-center gap-1 pt-2 border-top-1"
-                  >
-                    <p-button
-                      icon="pi pi-trash"
-                      severity="danger"
-                      [rounded]="true"
-                      [text]="true"
-                      size="small"
-                      (onClick)="confirmDeleteExistingRow(row, op)"
-                    />
-                    <span class="text-color-secondary">حذف سطر</span>
-                  </div>
-                }
-              </div>
-            </p-popover>
+      <ng-template pTemplate="footer">
+        <tr class="font-bold">
+          @if (allowReorder()) {
+            <td></td>
           }
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td
-          [attr.colspan]="
-            selectedColumns().length + (allowReorder() ? 1 : 0) + 1
-          "
-          class="text-center"
-        >
-          {{ emptyMessage() }}
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
+          @for (item of selectedColumns(); track item.field) {
+            <!-- Align numbers to the left (which is right in RTL) -->
+            <td class="text-end">
+              @if (item.field === "quantity") {
+                {{ totalFor("quantity") }}
+              } @else if (item.field === "price") {
+                {{ totalFor("price") }}
+              }
+            </td>
+          }
+          <!-- Empty cell for the actions column -->
+          <td></td>
+        </tr>
+      </ng-template>
+    </p-table>
   }
 </div>
 
-<p-confirmDialog />
+<p-confirmDialog acceptButtonStyleClass="p-button-success" />
 <p-toast [position]="'top-left'" />

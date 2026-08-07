@@ -8,6 +8,7 @@ export interface TableColumnDefinition<T = any> {
   type?: 'text' | 'number' | 'select';
   options?: { label: string; value: unknown }[];
   template?: TemplateRef<any>;
+  hasServerValidation?: boolean;
   component?: Type<any> | (() => Promise<Type<any>>);
 }
 
