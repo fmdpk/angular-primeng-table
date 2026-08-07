@@ -109,11 +109,16 @@ export class ProductsTableComponent implements OnInit {
     },
   ]);
 
-  // 1. Add categories for the select dropdown
   categories = ['دسته 1', 'دسته 2', 'دسته 3'];
+
   // isDialogVisible = signal(false);
   // selectedDialogRow = signal<any>(null);
   // activeEditingRow = signal<any>(null);
+  // dialogProducts = [
+  //   { id: 1, code: 'PRD-001', name: 'لپ تاپ' },
+  //   { id: 2, code: 'PRD-002', name: 'موس' },
+  //   { id: 3, code: 'PRD-003', name: 'کیبورد' },
+  // ];
 
   private fb = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
@@ -202,6 +207,7 @@ export class ProductsTableComponent implements OnInit {
     }
 
     const formValue = this.addRowForm.value;
+    console.log('Submitting new row:', formValue);
     this.loading.set(true);
 
     setTimeout(() => {
@@ -271,12 +277,14 @@ export class ProductsTableComponent implements OnInit {
 
   onLazyLoad(event: any) {
     this.loading.set(true);
+    console.log('Lazy load event:', event);
     setTimeout(() => {
       this.loading.set(false);
     }, 500);
   }
 
   onSave(event: BatchSaveEvent<TableItem>) {
+    console.log('Batch save event:', event);
     this.loading.set(true);
     setTimeout(() => {
       const deletedIds = new Set(event.deletes);
@@ -380,12 +388,6 @@ export class ProductsTableComponent implements OnInit {
       this.loading.set(false);
     }, 500);
   }
-
-  dialogProducts = [
-    { id: 1, code: 'PRD-001', name: 'لپ تاپ' },
-    { id: 2, code: 'PRD-002', name: 'موس' },
-    { id: 3, code: 'PRD-003', name: 'کیبورد' },
-  ];
 
   // how to give column cell a template reference to open a dialog and select a value from the dialog and set it to the cell value
   // openProductDialog(row: any, table: any) {
