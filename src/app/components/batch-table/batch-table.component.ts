@@ -287,7 +287,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
     this.columns().forEach((col) => {
       if ((draft as any)[col.field] === undefined) {
-        (draft as any)[col.field] = col.type === 'number' ? 0 : '';
+        (draft as any)[col.field] = col.type === 'number' ? 1 : '';
       }
     });
 
@@ -305,7 +305,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   }
 
   onSelectedColumnsChange(cols: TableColumnDefinition<T>[]): void {
-    if(this.loading()) return;
+    if (this.loading()) return;
     if (!cols?.length) {
       this.selectedColumns.set([...this.columns()]);
     } else {
@@ -387,7 +387,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   // ---------- Global filter ----------
   private globalFilterTimeout?: ReturnType<typeof setTimeout>;
   onGlobalFilter(value: string): void {
-    if(this.loading()) return;
+    if (this.loading()) return;
     clearTimeout(this.globalFilterTimeout);
     const previous = this.globalFilterValue;
     this.globalFilterValue = value ?? '';

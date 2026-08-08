@@ -246,12 +246,12 @@
           @for (item of columns; track item.field) {
             <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
               @if (isRowEditing(row)) {
-                @if (item.component) {
+                @if (item.component && !item.hideInput) {
                   <app-lazy-cell-loader
                     [component]="item.component"
                     [inputs]="{ row: row, column: item, table: this }"
                   ></app-lazy-cell-loader>
-                } @else if (item.template) {
+                } @else if (item.template && !item.hideInput) {
                   <!-- If column has a specific template, use it -->
                   <ng-container
                     *ngTemplateOutlet="

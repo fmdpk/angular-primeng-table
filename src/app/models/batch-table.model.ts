@@ -7,6 +7,7 @@ export interface TableColumnDefinition<T = any> {
   width?: string;
   type?: 'text' | 'number' | 'select';
   options?: { label: string; value: unknown }[];
+  hideInput?: boolean;
   template?: TemplateRef<any>;
   hasServerValidation?: boolean;
   component?: Type<any> | (() => Promise<Type<any>>);

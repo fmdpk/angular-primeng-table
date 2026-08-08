@@ -1,9 +1,9 @@
 export interface ItemCore {
-  code: string;
-  name: string;
-  category: string;
-  quantity: number;
-  price: number;
+  title: string | null;
+  status: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  createdUser: string | null;
 }
 
 export interface TableItem extends ItemCore {

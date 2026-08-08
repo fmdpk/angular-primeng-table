@@ -29,6 +29,7 @@ import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { TableModule } from 'primeng/table';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-products-table',
@@ -52,6 +53,8 @@ export class ProductsTableComponent implements OnInit {
   @ViewChild('headerForm') headerForm!: TemplateRef<any>;
   @ViewChild('customCellInput') customCellInput!: TemplateRef<any>;
 
+  http = inject(HttpClient);
+
   // readonly codeInputCell = viewChild('codeInputCell', {
   //   read: TemplateRef,
   // });
@@ -68,48 +71,56 @@ export class ProductsTableComponent implements OnInit {
 
   readonly columns = computed<TableColumnDefinition<TableItem>[]>(() => [
     {
-      field: 'code',
-      header: 'Code',
-      faHeader: 'کد',
-      width: '15%',
+      field: 'title',
+      header: 'Title',
+      faHeader: 'عنوان',
+      // width: '15%',
       // type: 'text',
       // template: this.codeInputCell(),
       // component: CodeInputCellComponent,
-      component: () =>
-        import('../code-input-cell/code-input-cell.component').then(
-          (m) => m.CodeInputCellComponent,
-        ),
+      // component: () =>
+      //   import('../code-input-cell/code-input-cell.component').then(
+      //     (m) => m.CodeInputCellComponent,
+      //   ),
     },
     {
-      field: 'name',
-      header: 'Name',
-      faHeader: 'نام',
+      field: 'status',
+      header: 'Status',
+      faHeader: 'وضعیت',
       width: '25%',
-    },
-    {
-      field: 'category',
-      header: 'Category',
-      faHeader: 'دسته',
-      width: '20%',
       type: 'select',
     },
     {
-      field: 'quantity',
-      header: 'Quantity',
-      faHeader: 'تعداد',
-      width: '15%',
-      type: 'number',
+      field: 'createdAt',
+      header: 'CreatedAt',
+      faHeader: 'زمان ثبت',
+      hideInput: true,
+      // width: '20%',
+      // type: 'select',
     },
     {
-      field: 'price',
-      header: 'Price',
-      faHeader: 'قیمت',
-      width: '25%',
-      type: 'number',
+      field: 'updatedAt',
+      header: 'updatedAt',
+      faHeader: 'آخرین ویرایش',
+      hideInput: true,
+      // width: '15%',
+      // type: 'text',
+    },
+    {
+      field: 'createUser',
+      header: 'CreateUser',
+      faHeader: 'کاربر ثبت کننده',
+      hideInput: true,
+      // width: '25%',
+      // type: 'text',
     },
   ]);
 
-  categories = ['دسته 1', 'دسته 2', 'دسته 3'];
+  status = [
+    { name: 'in progress', code: 'in progress' },
+    { name: 'pending', code: 'pending' },
+    { name: 'done', code: 'done' },
+  ];
 
   // isDialogVisible = signal(false);
   // selectedDialogRow = signal<any>(null);
@@ -122,42 +133,36 @@ export class ProductsTableComponent implements OnInit {
 
   private fb = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
-  addRowForm = this.fb.group(
-    this.columns().reduce(
-      (acc, col) => {
-        // Make all fields required. Add more specific validators if needed.
-        const validators = [Validators.required];
-        if (col.type === 'number') {
-          validators.push(Validators.min(0));
-        }
-        acc[col.field] = ['', validators];
-        return acc;
-      },
-      {} as Record<string, any>,
-    ),
-  );
+  addRowForm = this.fb.group({
+    title: ['', Validators.required],
+    status: ['', Validators.required],
+    createdAt: [''],
+    updatedAt: [''],
+    createUser: [''],
+  });
 
   readonly validators: Partial<Record<string, ValidatorFn<TableItem>>> = {
-    code: (v) => (v ? null : 'کد را وارد کنید'),
-    name: (v) => (v ? null : 'نام را وارد کنید'),
-    category: (v) => (v ? null : 'دسته را وارد کنید'),
-    quantity: (v) =>
-      v === '' || v == null
-        ? 'تعداد الزامی است'
-        : Number.isNaN(Number(v)) || Number(v) < 0
-          ? 'مقدار ≥ 0'
-          : null,
-    price: (v) =>
-      v === '' || v == null
-        ? 'قیمت را وارد کنید'
-        : Number.isNaN(Number(v)) || Number(v) < 0
-          ? 'مقدار ≥ 0'
-          : null,
+    title: (v) => (v ? null : 'عنوان را وارد کنید'),
+    status: (v) => (v ? null : 'وضعیت را وارد کنید'),
+    // createdAt: (v) => (v ? null : 'دسته را وارد کنید'),
+    // updatedAt: (v) =>
+    //   v === '' || v == null
+    //     ? 'تعداد الزامی است'
+    //     : Number.isNaN(Number(v)) || Number(v) < 0
+    //       ? 'مقدار ≥ 0'
+    //       : null,
+    // createUser: (v) =>
+    //   v === '' || v == null
+    //     ? 'قیمت را وارد کنید'
+    //     : Number.isNaN(Number(v)) || Number(v) < 0
+    //       ? 'مقدار ≥ 0'
+    //       : null,
   };
 
   ngOnInit(): void {
     if (this.isBrowser) {
       this.restoreColumns();
+      // this.onLazyLoad();
     }
   }
 
@@ -275,69 +280,34 @@ export class ProductsTableComponent implements OnInit {
     }, 500);
   }
 
-  onLazyLoad(event: any) {
+  onLazyLoad(event?: any) {
     this.loading.set(true);
-    console.log('Lazy load event:', event);
-    setTimeout(() => {
-      this.loading.set(false);
-    }, 500);
+    this.http.get<TableItem[]>('http://localhost:3000/items').subscribe({
+      next: (res: TableItem[]) => {
+        this.page.set(res);
+        this.total.set(res.length);
+        this.loading.set(false);
+      },
+      error: (error) => {
+        this.loading.set(false);
+      },
+    });
   }
 
   onSave(event: BatchSaveEvent<TableItem>) {
     console.log('Batch save event:', event);
     this.loading.set(true);
-    setTimeout(() => {
-      const deletedIds = new Set(event.deletes);
-      const updatesMap = new Map(event.updates.map((u: any) => [u.id, u]));
-
-      const updatedPage = this.page()
-        .filter((row: any) => !deletedIds.has(String(row.id)))
-        .map((row: any) => {
-          const updatedRow = updatesMap.get(row.id);
-          return updatedRow ? { ...updatedRow } : row;
-        });
-
-      const savedCreates = event.creates.map((p, index) => ({
-        ...p,
-        id: Date.now() + index,
-      }));
-
-      const tempIdToRealId = new Map<string, string>();
-      event.creates.forEach((p: any, index: number) => {
-        if (p._tempId) {
-          tempIdToRealId.set(String(p._tempId), String(savedCreates[index].id));
-        }
+    this.http
+      .post<TableItem[]>('http://localhost:3000/items', event)
+      .subscribe({
+        next: (res: TableItem[]) => {
+          event.done(true);
+          this.onLazyLoad();
+        },
+        error: (error) => {
+          this.loading.set(false);
+        },
       });
-
-      const translatedRowOrder = event.rowOrder.map((id) => {
-        return tempIdToRealId.get(String(id)) ?? String(id);
-      });
-
-      let finalPageData = [...savedCreates, ...updatedPage];
-
-      if (translatedRowOrder && translatedRowOrder.length > 0) {
-        finalPageData.sort((a: any, b: any) => {
-          const idA = String(a.id);
-          const idB = String(b.id);
-          const idxA = translatedRowOrder.indexOf(idA);
-          const idxB = translatedRowOrder.indexOf(idB);
-          return (
-            (idxA === -1 ? Infinity : idxA) - (idxB === -1 ? Infinity : idxB)
-          );
-        });
-      }
-
-      const cleanFinalData = finalPageData.map((row: any) => {
-        const { _tempId, ...cleanRow } = row;
-        return cleanRow;
-      });
-
-      this.page.set(cleanFinalData);
-      this.total.set(this.page().length);
-
-      event.done(true);
-      this.loading.set(false);
-    }, 500);
   }
 
   onAddRow(rowCount: number) {

@@ -25,40 +25,46 @@
 <ng-template #headerForm let-col>
   <ng-container [formGroup]="addRowForm">
     <div class="flex flex-col gap-1 w-full" style="display: block">
-      @switch (col.field) {
-        @case ("category") {
-          <p-select
-            [options]="categories"
-            [formControlName]="col.field"
-            [placeholder]="col.faHeader"
-            appendTo="body"
-            styleClass="w-full"
-            [overlayOptions]="{
-              styleClass: 'p-custom-select-overlay',
-            }"
-            [style]="{ width: '100%' }"
-            [class.p-invalid]="
-              addRowForm.get(col.field)?.invalid &&
-              addRowForm.get(col.field)?.touched
-            "
-          />
+      @switch (col.type) {
+        @case ("select") {
+          @if (!col.hideInput) {
+            <p-select
+              [options]="status"
+              [formControlName]="col.field"
+              [placeholder]="col.faHeader"
+              appendTo="body"
+              optionLabel="name"
+              optionValue="code"
+              styleClass="w-full"
+              [overlayOptions]="{
+                styleClass: 'p-custom-select-overlay',
+              }"
+              [style]="{ width: '100%' }"
+              [class.p-invalid]="
+                addRowForm.get(col.field)?.invalid &&
+                addRowForm.get(col.field)?.touched
+              "
+            />
+          }
         }
         @default {
-          <input
-            pInputText
-            [type]="col.type === 'number' ? 'number' : 'text'"
-            [formControlName]="col.field"
-            [placeholder]="col.faHeader"
-            class="w-full"
-            [class.p-invalid]="
-              addRowForm.get(col.field)?.invalid &&
-              addRowForm.get(col.field)?.touched
-            "
-            [class.ng-invalid]="
-              addRowForm.get(col.field)?.invalid &&
-              addRowForm.get(col.field)?.touched
-            "
-          />
+          @if (!col.hideInput) {
+            <input
+              pInputText
+              [type]="col.type === 'number' ? 'number' : 'text'"
+              [formControlName]="col.field"
+              [placeholder]="col.faHeader"
+              class="w-full"
+              [class.p-invalid]="
+                addRowForm.get(col.field)?.invalid &&
+                addRowForm.get(col.field)?.touched
+              "
+              [class.ng-invalid]="
+                addRowForm.get(col.field)?.invalid &&
+                addRowForm.get(col.field)?.touched
+              "
+            />
+          }
         }
       }
 
@@ -92,50 +98,66 @@
   <div class="flex flex-col gap-1 w-full">
     @switch (column.type) {
       @case ("number") {
-        <input
-          pInputText
-          type="number"
-          [ngModel]="row[column.field]"
-          (ngModelChange)="onApiFieldChange(table, row, column.field, $event)"
-          class="w-full"
-          [class.p-invalid]="
-            table.isFieldTouched(row, column.field) &&
-            table.getFieldError(row, column.field)
-          "
-        />
+        @if (!column.hideInput) {
+          <input
+            pInputText
+            type="number"
+            [ngModel]="row[column.field]"
+            (ngModelChange)="onApiFieldChange(table, row, column.field, $event)"
+            class="w-full"
+            [class.p-invalid]="
+              table.isFieldTouched(row, column.field) &&
+              table.getFieldError(row, column.field)
+            "
+          />
+        }
       }
 
       @case ("select") {
-        <p-select
-          [options]="categories"
-          [ngModel]="row[column.field]"
-          (ngModelChange)="onStandardChange(table, row, column.field, $event)"
-          [placeholder]="column.faHeader"
-          [appendTo]="'body'"
-          styleClass="w-full p-custom-select"
-          [overlayOptions]="{
-            styleClass: 'p-custom-select-overlay',
-          }"
-          [style]="{ width: '100%', display: 'inline-flex' }"
-          [class.p-invalid]="
-            addRowForm.get(column.field)?.invalid &&
-            addRowForm.get(column.field)?.touched
-          "
-        />
+        @if (!column.hideInput) {
+          <p-select
+            [options]="status"
+            [ngModel]="row[column.field]"
+            (ngModelChange)="onStandardChange(table, row, column.field, $event)"
+            [placeholder]="column.faHeader"
+            [appendTo]="'body'"
+            optionLabel="name"
+            optionValue="code"
+            styleClass="w-full p-custom-select"
+            [overlayOptions]="{
+              styleClass: 'p-custom-select-overlay',
+            }"
+            [style]="{ width: '100%', display: 'inline-flex' }"
+            [class.p-invalid]="
+              table.isFieldTouched(row, column.field) &&
+              table.getFieldError(row, column.field)
+            "
+          />
+        }
       }
 
       @default {
-        <input
-          pInputText
-          type="text"
-          [ngModel]="row[column.field]"
-          (ngModelChange)="onCustomCellChange(table, row, column.field, $event, column.hasServerValidation)"
-          class="w-full"
-          [class.p-invalid]="
-            table.isFieldTouched(row, column.field) &&
-            table.getFieldError(row, column.field)
-          "
-        />
+        @if (!column.hideInput) {
+          <input
+            pInputText
+            type="text"
+            [ngModel]="row[column.field]"
+            (ngModelChange)="
+              onCustomCellChange(
+                table,
+                row,
+                column.field,
+                $event,
+                column.hasServerValidation
+              )
+            "
+            class="w-full"
+            [class.p-invalid]="
+              table.isFieldTouched(row, column.field) &&
+              table.getFieldError(row, column.field)
+            "
+          />
+        }
       }
     }
 
