@@ -82,6 +82,10 @@ export class ProductsTableComponent implements OnInit {
       //   import('../code-input-cell/code-input-cell.component').then(
       //     (m) => m.CodeInputCellComponent,
       //   ),
+      component: () =>
+        import('../code-input-cell-overlay/code-input-cell-overlay.component').then(
+          (m) => m.CodeInputCellOverlayComponent,
+        ),
     },
     {
       field: 'status',
@@ -200,6 +204,8 @@ export class ProductsTableComponent implements OnInit {
 
   // 1. Handle Header Form Submission
   submitNewRow() {
+    console.log('Submit new row');
+    console.log(this.addRowForm);
     if (this.addRowForm.invalid) {
       this.addRowForm.markAllAsTouched(); // Triggers UI error display
       this.messageService.add({
@@ -212,6 +218,7 @@ export class ProductsTableComponent implements OnInit {
 
     const formValue = this.addRowForm.value;
     console.log('Submitting new row:', formValue);
+    console.log('Submitting new row:', this.addRowForm);
     this.loading.set(true);
 
     setTimeout(() => {

@@ -16,9 +16,17 @@ body {
   padding-right: 0 !important;
 }
 
-.p-custom-select-overlay{
+.p-custom-select-overlay {
   direction: ltr;
-  .p-select-list{
+  .p-select-list {
     direction: rtl;
+  }
+}
+
+.custom-popover {
+  &::before {
+    border-width: 0 !important;
+    bottom: 0 !important;
+    content: unset !important;
   }
 }

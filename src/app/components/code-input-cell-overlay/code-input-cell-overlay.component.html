@@ -1,0 +1,52 @@
+<div class="flex flex-col gap-1 w-full">
+  <div class="relative w-full">
+    <!-- Trigger overlay on click or input focus -->
+    <input
+      pInputText
+      type="text"
+      [ngModel]="row[column.field]"
+      (input)="onSearch($event)"
+      (focus)="op.toggle($event)"
+      class="w-full"
+      [style.padding-left]="'2rem'"
+    />
+    <i
+      class="pi pi-ellipsis-h absolute cursor-pointer text-color-secondary"
+      style="left: 0.6rem; top: 50%; transform: translateY(-50%)"
+      (click)="op.toggle($event)"
+    ></i>
+  </div>
+</div>
+
+<!-- Overlay Panel -->
+<p-popover
+  #op
+  [style]="{ width: '40rem' }"
+  styleClass="custom-popover"
+  appendTo="body"
+  [hidden]="false"
+>
+  <p-table
+    [value]="filteredProducts()"
+    selectionMode="single"
+    [(selection)]="selectedDialogRow"
+    (onRowSelect)="onSelect($event.data); op.hide()"
+    dataKey="id"
+    styleClass="p-datatable-sm"
+    [scrollable]="true"
+    [scrollHeight]="'250px'"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th>کد</th>
+        <th>نام محصول</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-product>
+      <tr [pSelectableRow]="product">
+        <td>{{ product.code }}</td>
+        <td>{{ product.name }}</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-popover>

@@ -549,7 +549,6 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       if (
         this.hasAnyInvalidNewRow() ||
         this.hasAnyInvalidRow() ||
-        this.hasRowOrderChanged() ||
         this.isAnyRowEditing()
       ) {
         this.markAllRowsTouched();
@@ -1197,6 +1196,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   onRowReorder(event: TableRowReorderEvent): void {
     const currentRows = this.tableValue();
+    console.log(currentRows);
 
     const newOrder = currentRows.map((r) =>
       String((r as any)[this.keyField()] ?? r._tempId),
@@ -1212,6 +1212,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       });
     });
     this.pendingNewRows.set([...result]);
+    console.log(newOrder);
+    console.log(event);
     this.pendingRowOrder.set(newOrder);
   }
 
