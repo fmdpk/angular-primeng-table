@@ -171,13 +171,7 @@
   </div>
 </ng-template>
 
-<ng-template
-  #footerTemplate
-  let-row
-  let-columns="columns"
-  let-table="table"
-  pTemplate="footer"
->
+<ng-template #footerTemplate let-row let-columns="columns" let-table="table">
   <tr class="font-bold">
     @if (allowReorder()) {
       <td></td>
@@ -196,6 +190,7 @@
     <td></td>
   </tr>
 </ng-template>
+
 <!-- <ng-template #codeInputCell let-row let-column="column" let-table="table">
   <div class="flex flex-col gap-1 w-full">
     <div class="relative w-full">
