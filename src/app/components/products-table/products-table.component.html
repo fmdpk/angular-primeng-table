@@ -2,6 +2,7 @@
   [value]="page()"
   [totalRecords]="total()"
   [loading]="loading()"
+  [showFooter]="showFooter()"
   [rows]="rows()"
   [columns]="columns()"
   [userSelectedRows]="userSelectedRows()"
@@ -18,6 +19,7 @@
   (columnsReorder)="onColumnsReorder($event)"
   [headerFormTemplate]="headerForm"
   [editorInputTemplate]="customCellInput"
+  [footerTemplate]="footerTemplate"
   [headerFormActionTemplate]="headerSubmit"
   (rowEditConfirm)="onRowEditConfirm($event)"
 />
@@ -167,6 +169,32 @@
       <small class="p-error text-xs">{{ err }}</small>
     }
   </div>
+</ng-template>
+
+<ng-template
+  #footerTemplate
+  let-row
+  let-columns="columns"
+  let-table="table"
+  pTemplate="footer"
+>
+  <tr class="font-bold">
+    @if (allowReorder()) {
+      <td></td>
+    }
+    @for (item of columns; track item.field) {
+      <!-- Align numbers to the left (which is right in RTL) -->
+      <td class="text-end">
+        @if (item.field === "quantity") {
+          {{ table.totalFor("quantity") }}
+        } @else if (item.field === "price") {
+          {{ table.totalFor("price") }}
+        }
+      </td>
+    }
+    <!-- Empty cell for the actions column -->
+    <td></td>
+  </tr>
 </ng-template>
 <!-- <ng-template #codeInputCell let-row let-column="column" let-table="table">
   <div class="flex flex-col gap-1 w-full">

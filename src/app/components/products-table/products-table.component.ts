@@ -63,8 +63,10 @@ export class ProductsTableComponent implements OnInit {
   readonly page = signal<TableItem[]>([]);
   readonly total = signal(0);
   readonly rows = signal(5);
+  readonly allowReorder = signal<boolean>(true);
   readonly userSelectedRows = signal(5);
   readonly loading = signal(false);
+  readonly showFooter = signal(false);
   private readonly platformId = inject(PLATFORM_ID);
   readonly isBrowser = isPlatformBrowser(this.platformId);
   initialSelectedColumns = signal<TableColumnDefinition<TableItem>[]>([]);
@@ -117,8 +119,8 @@ export class ProductsTableComponent implements OnInit {
       // type: 'text',
     },
     {
-      field: 'createUser',
-      header: 'CreateUser',
+      field: 'createdUser',
+      header: 'CreatedUser',
       faHeader: 'کاربر ثبت کننده',
       hideInput: true,
       // width: '25%',
@@ -148,7 +150,7 @@ export class ProductsTableComponent implements OnInit {
     status: ['', Validators.required],
     createdAt: [''],
     updatedAt: [''],
-    createUser: [''],
+    createdUser: [''],
   });
 
   readonly validators: Partial<Record<string, ValidatorFn<TableItem>>> = {

@@ -419,25 +419,14 @@
         </tr>
       </ng-template>
 
-      <ng-template pTemplate="footer">
-        <tr class="font-bold">
-          @if (allowReorder()) {
-            <td></td>
-          }
-          @for (item of selectedColumns(); track item.field) {
-            <!-- Align numbers to the left (which is right in RTL) -->
-            <td class="text-end">
-              @if (item.field === "quantity") {
-                {{ totalFor("quantity") }}
-              } @else if (item.field === "price") {
-                {{ totalFor("price") }}
-              }
-            </td>
-          }
-          <!-- Empty cell for the actions column -->
-          <td></td>
-        </tr>
-      </ng-template>
+      @if (showFooter()) {
+        <ng-container
+          *ngTemplateOutlet="
+            footerTemplate();
+            context: { columns: selectedColumns(), table: this }
+          "
+        ></ng-container>
+      }
     </p-table>
   }
 </div>

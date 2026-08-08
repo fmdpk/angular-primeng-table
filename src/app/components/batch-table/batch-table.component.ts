@@ -71,11 +71,13 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   readonly value = input.required<T[]>();
   readonly totalRecords = input<number>(0);
   readonly loading = input<boolean>(false);
+  readonly showFooter = input<boolean>(false);
   readonly rows = input<number>(5);
   readonly userSelectedRows = input<number>(5);
   readonly columns = input.required<TableColumnDefinition<T>[]>();
   readonly headerFormTemplate = input<TemplateRef<any> | null>(null);
   readonly editorInputTemplate = input<TemplateRef<any> | null>(null);
+  readonly footerTemplate = input<TemplateRef<any> | null>(null);
   readonly headerFormActionTemplate = input<TemplateRef<any> | null>(null);
 
   /** Initial visible columns. If omitted, all columns are shown. */
