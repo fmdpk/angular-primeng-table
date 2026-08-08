@@ -69,6 +69,8 @@ export class CodeInputCellOverlayComponent {
   }
 
   onSelect(product: any) {
+    console.log(product);
+    this.row[this.column.field] = '';
     this.row[this.column.field] = product.code;
     this.table.markFieldTouched(this.row, this.column.field);
   }

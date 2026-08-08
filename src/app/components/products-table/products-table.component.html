@@ -91,10 +91,7 @@
   />
 </ng-template>
 
-<!-- Define Custom Cell Input Template -->
-<!-- Inside products-table.component.ts template -->
 <ng-template #customCellInput let-row let-column="column" let-table="table">
-  <!-- Wrapper div to hold input and error message -->
   <div class="flex flex-col gap-1 w-full">
     @switch (column.type) {
       @case ("number") {

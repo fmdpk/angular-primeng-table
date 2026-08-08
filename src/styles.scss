@@ -29,4 +29,9 @@ body {
     bottom: 0 !important;
     content: unset !important;
   }
+  &::after {
+    border-width: 0 !important;
+    bottom: 0 !important;
+    content: unset !important;
+  }
 }
