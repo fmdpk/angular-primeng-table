@@ -10,6 +10,7 @@ export interface TableColumnDefinition<T = any> {
   hideInput?: boolean;
   template?: TemplateRef<any>;
   hasServerValidation?: boolean;
+  convertCellOutput?: (cellInput: any) => void;
   component?: Type<any> | (() => Promise<Type<any>>);
 }
 

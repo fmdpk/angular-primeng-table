@@ -13,7 +13,6 @@
         icon="pi pi-save"
         severity="success"
         (onClick)="saveBatch()"
-        [disabled]="totalPendingCount() === 0"
       />
       <p-button
         label="لغو"
@@ -279,7 +278,15 @@
                         'fix-height': isCellDirty(row, item.field),
                       }"
                     >
-                      {{ row[item.field] }}
+                      @if (item.convertCellOutput) {
+                        {{
+                          item.convertCellOutput(
+                            row[item.field] ? row[item.field] : date
+                          )
+                        }}
+                      } @else {
+                        {{ row[item.field] }}
+                      }
                     </span>
                     @if (isCellDirty(row, item.field)) {
                       <p-button

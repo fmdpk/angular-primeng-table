@@ -248,6 +248,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     return finalRows;
   });
 
+  date = new Date().toISOString();
+
   /** Numeric totals per field — generic for any numeric field. */
   totalFor(field: string): number {
     return this.tableValue().reduce(
@@ -534,7 +536,14 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   // ---------- Save / Discard ----------
   saveBatch(): void {
-    if (this.totalPendingCount() === 0) return;
+    if (this.totalPendingCount() === 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'توجه',
+        detail: 'موردی برای ذخیره کردن یافت نشد',
+      });
+      return;
+    }
 
     setTimeout(() => {
       if (

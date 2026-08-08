@@ -94,6 +94,9 @@ export class ProductsTableComponent implements OnInit {
       field: 'createdAt',
       header: 'CreatedAt',
       faHeader: 'زمان ثبت',
+      convertCellOutput: (cellInput) => {
+        return new Date(cellInput).toLocaleDateString('fa');
+      },
       hideInput: true,
       // width: '20%',
       // type: 'select',
@@ -102,6 +105,9 @@ export class ProductsTableComponent implements OnInit {
       field: 'updatedAt',
       header: 'updatedAt',
       faHeader: 'آخرین ویرایش',
+      convertCellOutput: (cellInput) => {
+        return new Date(cellInput).toLocaleDateString('fa');
+      },
       hideInput: true,
       // width: '15%',
       // type: 'text',
@@ -144,16 +150,9 @@ export class ProductsTableComponent implements OnInit {
   readonly validators: Partial<Record<string, ValidatorFn<TableItem>>> = {
     title: (v) => (v ? null : 'عنوان را وارد کنید'),
     status: (v) => (v ? null : 'وضعیت را وارد کنید'),
-    // createdAt: (v) => (v ? null : 'دسته را وارد کنید'),
     // updatedAt: (v) =>
     //   v === '' || v == null
     //     ? 'تعداد الزامی است'
-    //     : Number.isNaN(Number(v)) || Number(v) < 0
-    //       ? 'مقدار ≥ 0'
-    //       : null,
-    // createUser: (v) =>
-    //   v === '' || v == null
-    //     ? 'قیمت را وارد کنید'
     //     : Number.isNaN(Number(v)) || Number(v) < 0
     //       ? 'مقدار ≥ 0'
     //       : null,
