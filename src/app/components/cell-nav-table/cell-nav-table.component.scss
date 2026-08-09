@@ -14,13 +14,22 @@ td {
   }
 }
 
+tr.row-selected {
+  // background-color: rgba(59, 130, 246, 0.12) !important;
+
+  /* Ensure PrimeNG table cells don't override row background */
+  > td {
+    background-color: transparent !important;
+  }
+}
+
 /* Custom visual selection styles */
 .cell-selected {
   outline: 2px solid #3b82f6 !important; /* Custom focus ring color */
   outline-offset: -2px;
-  background-color: rgba(59, 130, 246, 0.08);
+  background-color: rgb(59 130 246 / 33%) !important; /* Custom background color for selected cell */
 }
 
 .row-selected {
-  background-color: rgba(59, 130, 246, 0.15) !important;
+  background-color: rgba(59, 130, 246, 0.15);
 }

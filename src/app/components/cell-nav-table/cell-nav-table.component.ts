@@ -69,6 +69,16 @@ export class CellNavTableComponent {
 
   selectedCell: CellCoordinates | null = null;
 
+  // Detect clicks anywhere on the document
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const clickedInside = this.el.nativeElement.contains(event.target as Node);
+    if (!clickedInside) {
+      this.isFocused = false;
+      this.selectedCell = null; // Clears the selection state when clicking outside
+    }
+  }
+
   // Track focus for this table instance
   isFocused = false;
   dir: 'ltr' | 'rtl' = 'rtl'; // Default direction, can be set dynamically
@@ -93,10 +103,14 @@ export class CellNavTableComponent {
   }
 
   selectCell(rowIndex: number, colIndex: number, event?: MouseEvent): void {
+    // Prevent document:click from instantly clearing selection when a cell is clicked
+    if (event) {
+      event.stopPropagation();
+    }
+
     this.isFocused = true;
     this.selectedCell = { rowIndex, colIndex };
 
-    // Automatically select/highlight the row of the clicked cell
     const rowToSelect = this.products[rowIndex];
     if (rowToSelect) {
       this.selectRow(rowToSelect);
@@ -110,6 +124,7 @@ export class CellNavTableComponent {
 
   isSelected(rowIndex: number, colIndex: number): boolean {
     return (
+      this.isFocused &&
       this.selectedCell?.rowIndex === rowIndex &&
       this.selectedCell?.colIndex === colIndex
     );
