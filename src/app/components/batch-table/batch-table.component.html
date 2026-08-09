@@ -251,6 +251,7 @@
               (click)="selectCell(rowIndex, colIndex)"
               [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }"
               [class.cell-selected]="isSelected(rowIndex, colIndex)"
+              tabindex="0"
             >
               @if (isRowEditing(row)) {
                 @if (item.component && !item.hideInput) {

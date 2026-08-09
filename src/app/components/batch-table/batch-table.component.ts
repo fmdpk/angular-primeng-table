@@ -1308,45 +1308,59 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent): void {
+    // Ignore key movements if typing inside input, textarea, or multiselect
+    const target = event.target as HTMLElement;
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+
     if (!this.selectedCell) return;
 
     const { rowIndex, colIndex } = this.selectedCell;
+    const maxRowIndex = this.tableValue().length - 1;
+    const maxColIndex = this.selectedColumns().length - 1;
 
-    // Detect RTL direction from document root or body
+    // Determine direction dynamically (default RTL based on component input)
     const isRtl =
+      this.dir() === 'rtl' ||
       document.documentElement.dir === 'rtl' ||
-      document.body.dir === 'rtl' ||
-      getComputedStyle(document.body).direction === 'rtl';
+      document.body.dir === 'rtl';
 
-    // In RTL: ArrowLeft advances to next column, ArrowRight moves to previous column
+    // RTL: ArrowLeft goes to NEXT column (+1), ArrowRight goes to PREVIOUS column (-1)
+    // LTR: ArrowLeft goes to PREVIOUS column (-1), ArrowRight goes to NEXT column (+1)
     const nextColKey = isRtl ? 'ArrowLeft' : 'ArrowRight';
     const prevColKey = isRtl ? 'ArrowRight' : 'ArrowLeft';
 
     if (event.key === nextColKey) {
-      event.preventDefault();
-      if (colIndex < this.columns.length - 1) {
+      if (colIndex < maxColIndex) {
+        event.preventDefault();
         this.selectedCell = { rowIndex, colIndex: colIndex + 1 };
       }
     } else if (event.key === prevColKey) {
-      event.preventDefault();
       if (colIndex > 0) {
+        event.preventDefault();
         this.selectedCell = { rowIndex, colIndex: colIndex - 1 };
       }
     } else if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      if (rowIndex < this.tableValue().length - 1) {
+      if (rowIndex < maxRowIndex) {
+        event.preventDefault();
         this.selectedCell = { rowIndex: rowIndex + 1, colIndex };
       }
     } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
       if (rowIndex > 0) {
+        event.preventDefault();
         this.selectedCell = { rowIndex: rowIndex - 1, colIndex };
       }
     } else if (
       (event.ctrlKey || event.metaKey) &&
       event.key.toLowerCase() === 'c'
     ) {
-      this.copyCellValue(rowIndex, colIndex);
+      this.copySelectedCell();
     }
   }
 
@@ -1376,6 +1390,31 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       this.selectedCell?.rowIndex === rowIndex &&
       this.selectedCell?.colIndex === colIndex
     );
+  }
+
+  copySelectedCell(): void {
+    if (!this.selectedCell) return;
+    const { rowIndex, colIndex } = this.selectedCell;
+    const row = this.tableValue()[rowIndex];
+    const col = this.selectedColumns()[colIndex];
+
+    if (!row || !col) return;
+
+    const rawValue = row[col.field];
+    const formattedValue = col.convertCellOutput
+      ? col.convertCellOutput(rawValue ?? this.date)
+      : rawValue;
+
+    if (formattedValue !== undefined && formattedValue !== null) {
+      navigator.clipboard.writeText(String(formattedValue)).then(() => {
+        this.messageService.add({
+          severity: 'info',
+          summary: 'کپی شد',
+          detail: `مقدار "${formattedValue}" کپی شد`,
+          life: 2000,
+        });
+      });
+    }
   }
 
   getCellValue(rowIndex: number, colIndex: number): string {
