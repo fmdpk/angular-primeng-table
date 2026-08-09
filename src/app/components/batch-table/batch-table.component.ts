@@ -130,6 +130,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   readonly first = signal(0);
   readonly internalLoading = signal(false);
+  readonly selectedRow = signal<BatchTableItem<T> | null>(null);
 
   /** Currently visible columns (mutable copy). */
   readonly selectedColumns = signal<TableColumnDefinition<T>[]>([]);
@@ -201,17 +202,16 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       .map((row) => {
         const rowKey = String((row as any)[keyField]);
 
-        // Reuse the cached augmented row if the original server row hasn't changed
         let augmentedRow = this.augmentedCache.get(rowKey);
         if (!augmentedRow || augmentedRow._original !== row) {
           augmentedRow = {
             ...row,
-            _original: row, // Keep reference to the original server row
+            _original: row,
+            _rowKey: rowKey, // stable key for PrimeNG selection
           } as BatchTableItem<T>;
           this.augmentedCache.set(rowKey, augmentedRow);
         }
 
-        // Apply pending field values directly to the cached object
         this.pendingFieldValues().forEach((value, key) => {
           if (key.startsWith(`${rowKey}::`)) {
             const field = key.split('::')[1];
@@ -222,7 +222,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
         return augmentedRow;
       });
 
-    // Clean up cache for rows that are no longer on the current page
+    // Clean up cache
     const currentKeys = new Set(
       serverRows.map((r) => String((r as any)[keyField])),
     );
@@ -232,17 +232,49 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       }
     }
 
-    let finalRows =
-      first === 0 && drafts.length
-        ? ([...drafts, ...augmented] as BatchTableItem<T>[])
-        : augmented;
+    // --- Insert drafts at the correct positions ---
+    let finalRows: BatchTableItem<T>[];
 
-    // APPLY ROW REORDER SORTING
+    if (first !== 0 || drafts.length === 0) {
+      finalRows = augmented;
+    } else {
+      const result: BatchTableItem<T>[] = [...augmented];
+
+      // Make sure each draft has a stable _rowKey
+      drafts.forEach((d) => {
+        (d as any)._rowKey = this.rowKeyForOrder(d);
+      });
+
+      // 1) Drafts without an insert target -> go to the TOP (preserve order)
+      const draftsTop = drafts.filter((d) => !(d as any)._insertAfterKey);
+      for (let i = draftsTop.length - 1; i >= 0; i--) {
+        result.unshift(draftsTop[i]);
+      }
+
+      // 2) Drafts with a target -> insert AFTER that target row
+      const draftsTargeted = drafts.filter((d) => (d as any)._insertAfterKey);
+      draftsTargeted.forEach((draft) => {
+        const targetKey = (draft as any)._insertAfterKey;
+        const idx = result.findIndex(
+          (r) => this.rowKeyForOrder(r) === targetKey,
+        );
+        if (idx >= 0) {
+          result.splice(idx + 1, 0, draft);
+        } else {
+          // Target not visible (filtered/paged out) -> fallback to top
+          result.unshift(draft);
+        }
+      });
+
+      finalRows = result;
+    }
+
+    // APPLY ROW REORDER SORTING (existing logic)
     const order = this.pendingRowOrder();
     if (order && order.length) {
       finalRows = [...finalRows].sort((a, b) => {
-        const idA = String((a as any)[keyField] ?? a._tempId);
-        const idB = String((b as any)[keyField] ?? b._tempId);
+        const idA = this.rowKeyForOrder(a);
+        const idB = this.rowKeyForOrder(b);
         return order.indexOf(idA) - order.indexOf(idB);
       });
     }
@@ -280,9 +312,14 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   //a public method for the parent to call after API success
   // Inside batch-table.component.ts
   public addDraftRow(data: Partial<T>): void {
+    // Determine where to insert: after the selected row, or null = top
+    const selected = this.selectedRow();
+    const insertAfterKey = selected ? this.rowKeyForOrder(selected) : null;
+
     const draft = {
       ...data,
       _isNew: true,
+      _insertAfterKey: insertAfterKey, // NEW
       _tempId:
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
@@ -297,7 +334,29 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
     draft._original = { ...(draft as any) };
 
-    this.pendingNewRows.update((rows) => [draft as T, ...rows]);
+    this.pendingNewRows.update((rows) => [...rows, draft as T]);
+
+    // If row-reorder is currently active, also insert the new draft's key
+    // into the pendingRowOrder array, right after the selected row's key.
+    if (insertAfterKey && this.pendingRowOrder()) {
+      const order = [...this.pendingRowOrder()!];
+      const draftKey = this.rowKeyForOrder(draft);
+      const idx = order.indexOf(insertAfterKey);
+      if (idx >= 0) {
+        order.splice(idx + 1, 0, draftKey);
+      } else {
+        order.unshift(draftKey);
+      }
+      this.pendingRowOrder.set(order);
+    }
+
+    // Clear selection so the next "add" defaults to top again
+    this.selectedRow.set(null);
+  }
+
+  // Helper: returns the same key format used by onRowReorder / sort logic
+  private rowKeyForOrder(row: BatchTableItem<T>): string {
+    return String((row as any)[this.keyField()] ?? row._tempId);
   }
 
   // ---------- Column selection ----------
@@ -512,27 +571,39 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       return;
     }
 
-    // if (this.first() !== 0) {
-    //   this.first.set(0);
-    //   this.emitLazyLoad({ first: 0, rows: this.rows() });
-    // }
+    // Build the same kind of draft as addDraftRow, but with no server data
+    const selected = this.selectedRow();
+    const insertAfterKey = selected ? this.rowKeyForOrder(selected) : null;
 
     const draft = {
       _isNew: true,
+      _insertAfterKey: insertAfterKey,
       _tempId:
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
           : `temp-${Date.now()}-${Math.random()}`,
     } as BatchTableItem<T>;
 
-    // Initialize empty values for every column so ngModel has something to bind.
     this.columns().forEach((col) => {
       (draft as any)[col.field] = col.type === 'number' ? 1 : '';
     });
     draft._original = { ...(draft as any) };
 
-    this.pendingNewRows.update((rows) => [draft as T, ...rows]);
+    this.pendingNewRows.update((rows) => [...rows, draft as T]);
 
+    if (insertAfterKey && this.pendingRowOrder()) {
+      const order = [...this.pendingRowOrder()!];
+      const draftKey = this.rowKeyForOrder(draft);
+      const idx = order.indexOf(insertAfterKey);
+      if (idx >= 0) {
+        order.splice(idx + 1, 0, draftKey);
+      } else {
+        order.unshift(draftKey);
+      }
+      this.pendingRowOrder.set(order);
+    }
+
+    this.selectedRow.set(null);
     this.onchangeRowCount.emit(this.rows() + 1);
   }
 
@@ -1222,5 +1293,154 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   // Method to undo row reorder
   undoRowOrder(): void {
     this.pendingRowOrder.set(null);
+  }
+
+  onRowSelect(event: any): void {
+    this.selectedRow.set(event.data as BatchTableItem<T>);
+  }
+
+  onRowUnselect(_event: any): void {
+    this.selectedRow.set(null);
+  }
+
+  // ---------- Arrow key navigation ----------
+  onCellKeydown(event: Event, row: BatchTableItem<T>, rowIndex: number): void {
+    const e = event as KeyboardEvent;
+    const isRtl = this.dir() === 'rtl';
+    const target = e.target as HTMLElement;
+
+    // Ignore if user is holding modifier keys (like Ctrl+C)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    // Find the closest TD if we are inside a cell, otherwise it's null (View Mode row focus)
+    const currentTd = target.closest('td');
+
+    // 1. Handle Up / Down Navigation
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const currentTr = (
+        currentTd ? currentTd.parentElement : target.closest('tr')
+      ) as HTMLTableRowElement;
+      if (!currentTr) return;
+
+      const targetTr =
+        e.key === 'ArrowDown'
+          ? currentTr.nextElementSibling
+          : currentTr.previousElementSibling;
+
+      if (!(targetTr instanceof HTMLTableRowElement)) return;
+
+      const rows = this.tableValue();
+      const targetRowIndex =
+        e.key === 'ArrowDown' ? rowIndex + 1 : rowIndex - 1;
+
+      if (targetRowIndex < 0 || targetRowIndex >= rows.length) return;
+
+      const targetRow = rows[targetRowIndex];
+      this.selectedRow.set(targetRow); // Update PrimeNG selection
+
+      const isCurrentlyEditing = this.isRowEditing(row);
+
+      // If we are editing, ensure the target row enters edit mode too
+      if (isCurrentlyEditing && !this.isRowEditing(targetRow)) {
+        this.startRowEdit(targetRow);
+      }
+
+      // Find current column index
+      let colIndex = 0;
+      if (currentTd) {
+        colIndex = Array.from(currentTr.children).indexOf(currentTd);
+      }
+
+      this.focusCell(targetTr, colIndex, isCurrentlyEditing);
+      return;
+    }
+
+    // 2. Handle Left / Right Navigation (RTL aware)
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      // If no specific cell is targeted (View Mode), ignore Left/Right
+      if (!currentTd) return;
+
+      const isNext = isRtl ? e.key === 'ArrowLeft' : e.key === 'ArrowRight';
+
+      // Prevent skipping if user is just moving text cursor inside an input
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement
+      ) {
+        const cursorPos = target.selectionStart;
+        const valueLen = target.value.length;
+        if (isNext && cursorPos !== null && cursorPos < valueLen) return;
+        if (!isNext && cursorPos !== null && cursorPos > 0) return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rowEl = currentTd.parentElement as HTMLTableRowElement;
+      if (!rowEl) return;
+
+      const allCells = Array.from(rowEl.querySelectorAll('td'));
+      const startIndex = this.allowReorder() ? 1 : 0;
+      // Exclude the first cell (reorder icon) and the last cell (actions menu)
+      const cells = allCells.slice(
+        startIndex,
+        allCells.length - 1,
+      ) as HTMLElement[];
+
+      const currentIndex = cells.indexOf(currentTd);
+      if (currentIndex === -1) return;
+
+      const targetIndex = isNext ? currentIndex + 1 : currentIndex - 1;
+      if (targetIndex < 0 || targetIndex >= cells.length) return;
+
+      const absoluteIndex = targetIndex + startIndex;
+      const isCurrentlyEditing = this.isRowEditing(row);
+      this.focusCell(rowEl, absoluteIndex, isCurrentlyEditing);
+    }
+  }
+
+  /**
+   * Helper to focus an input inside a specific cell.
+   * Uses a retry mechanism because lazy-loaded components take a moment to render.
+   */
+  private focusCell(
+    rowEl: HTMLTableRowElement,
+    colIndex: number,
+    isEditing: boolean,
+    attempt = 0,
+  ) {
+    setTimeout(() => {
+      if (isEditing) {
+        const targetTd = rowEl.children[colIndex] as HTMLElement;
+        if (!targetTd) {
+          rowEl.focus(); // Fallback
+          return;
+        }
+
+        // Look for standard inputs or PrimeNG component wrappers
+        const focusable = targetTd.querySelector(
+          'input, textarea, select, .p-select, .p-autocomplete, [tabindex]:not([tabindex="-1"])',
+        ) as HTMLElement | null;
+
+        if (focusable) {
+          focusable.focus();
+          if (focusable instanceof HTMLInputElement) {
+            focusable.select(); // Select text for easy overwriting
+          }
+        } else if (attempt < 10) {
+          // If not found, try again (waits for Angular to render lazy component)
+          this.focusCell(rowEl, colIndex, isEditing, attempt + 1);
+        } else {
+          targetTd.setAttribute('tabindex', '0');
+          targetTd.focus();
+        }
+      } else {
+        // In View Mode, just focus the row itself to move the selection box
+        rowEl.focus();
+      }
+    }, 50);
   }
 }

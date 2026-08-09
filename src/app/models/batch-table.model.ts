@@ -21,6 +21,8 @@ export interface BatchTableItem<T = any> {
   _isNew?: boolean;
   _tempId?: string;
   _original?: T;
+  _rowKey?: string; // NEW: stable key for PrimeNG selection
+  _insertAfterKey?: string | null; // NEW: insertion target
 }
 
 export interface BatchSaveEvent<T = any> {

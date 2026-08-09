@@ -80,8 +80,10 @@
       [first]="first()"
       [loading]="loading()"
       [customSort]="true"
-      [dataKey]="keyField()"
       [sortMode]="'multiple'"
+      [selectionMode]="'single'"
+      dataKey="_rowKey"
+      [(selection)]="selectedRow"
       [reorderableColumns]="allowReorder()"
       [scrollable]="true"
       [scrollHeight]="scrollHeight()"
@@ -236,6 +238,8 @@
           [class.row-new]="row._isNew"
           [appRowHighlight]="isDirty(row)"
           [pReorderableRow]="index"
+          [pSelectableRow]="row"
+          (keydown)="onCellKeydown($event, row, index)"
         >
           @if (allowReorder()) {
             <td>
