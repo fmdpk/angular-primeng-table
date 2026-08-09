@@ -151,3 +151,23 @@ td {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Remove standard browser focus outlines causing the black border */
+:host {
+  outline: none;
+}
+
+td {
+  outline: none !important;
+  user-select: none;
+
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}
+
+.row-selected {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}

@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
   HostListener,
   inject,
   input,
@@ -64,6 +65,11 @@ import { LazyCellLoaderComponent } from '../lazy-cell-loader/lazy-cell-loader.co
   templateUrl: './batch-table.component.html',
   styleUrl: './batch-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    tabindex: '0',
+    '(focusin)': 'onFocus()',
+    '(focusout)': 'onBlur($event)',
+  },
 })
 export class BatchTableComponent<T extends Record<string, any> = any>
   implements OnInit, OnDestroy
@@ -106,6 +112,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   readonly lazyLoad = output<TableLazyLoadEvent>();
   readonly save = output<BatchSaveEvent<T>>();
   readonly discard = output<void>();
+  readonly rowSelect = output<BatchTableItem<T>>();
   readonly cellEdit = output<BatchCellEditEvent<T>>();
   readonly columnsReorder = output<TableColumnDefinition<T>[]>();
   readonly selectedColumnsChange = output<TableColumnDefinition<T>[]>();
@@ -147,6 +154,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   private readonly confirmationService = inject(ConfirmationService);
   readonly messageService = inject(MessageService);
+  readonly el: ElementRef = inject(ElementRef);
 
   private appliedMultiSortMeta = signal<
     { field: string; order: number }[] | null
@@ -287,13 +295,8 @@ export class BatchTableComponent<T extends Record<string, any> = any>
 
   date = new Date().toISOString();
 
-  /** Numeric totals per field — generic for any numeric field. */
-  totalFor(field: string): number {
-    return this.tableValue().reduce(
-      (sum, row) => sum + (Number(row[field]) || 0),
-      0,
-    );
-  }
+  // Track focus for this table instance
+  isFocused = false;
 
   // ---------- Lifecycle ----------
   constructor() {
@@ -309,6 +312,25 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     if (this.table && this.originalOnColumnResizeEnd) {
       (this.table as any).onColumnResizeEnd = this.originalOnColumnResizeEnd;
       this.originalOnColumnResizeEnd = undefined;
+    }
+  }
+
+  /** Numeric totals per field — generic for any numeric field. */
+  totalFor(field: string): number {
+    return this.tableValue().reduce(
+      (sum, row) => sum + (Number(row[field]) || 0),
+      0,
+    );
+  }
+
+  onFocus(): void {
+    this.isFocused = true;
+  }
+
+  onBlur(event: FocusEvent): void {
+    // Only remove focus if the new focus target is outside this table component
+    if (!this.el.nativeElement.contains(event.relatedTarget as Node)) {
+      this.isFocused = false;
     }
   }
 
@@ -1306,9 +1328,10 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     this.selectedRow.set(null);
   }
 
-  @HostListener('window:keydown', ['$event'])
+  @HostListener('keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent): void {
-    // Ignore key movements if typing inside input, textarea, or multiselect
+    if (!this.selectedCell) return;
+
     const target = event.target as HTMLElement;
     if (
       target &&
@@ -1319,41 +1342,59 @@ export class BatchTableComponent<T extends Record<string, any> = any>
       return;
     }
 
-    if (!this.selectedCell) return;
-
     const { rowIndex, colIndex } = this.selectedCell;
     const maxRowIndex = this.tableValue().length - 1;
     const maxColIndex = this.selectedColumns().length - 1;
 
-    // Determine direction dynamically (default RTL based on component input)
     const isRtl =
       this.dir() === 'rtl' ||
       document.documentElement.dir === 'rtl' ||
       document.body.dir === 'rtl';
 
-    // RTL: ArrowLeft goes to NEXT column (+1), ArrowRight goes to PREVIOUS column (-1)
-    // LTR: ArrowLeft goes to PREVIOUS column (-1), ArrowRight goes to NEXT column (+1)
     const nextColKey = isRtl ? 'ArrowLeft' : 'ArrowRight';
     const prevColKey = isRtl ? 'ArrowRight' : 'ArrowLeft';
 
+    const handledKeys = [
+      nextColKey,
+      prevColKey,
+      'ArrowDown',
+      'ArrowUp',
+      ' ',
+      'Space',
+    ];
+
+    // Check if the pressed key is handled by navigation
+    if (handledKeys.includes(event.key) || event.code === 'Space') {
+      // Stop the event from reaching window listeners on other tables
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+
+    // 1. Space Key Row Selection
+    if (event.key === ' ' || event.code === 'Space') {
+      const rowToSelect = this.tableValue()[rowIndex];
+      if (rowToSelect) {
+        this.selectRow(rowToSelect);
+      }
+      return;
+    }
+
+    // 2. Navigation Logic
     if (event.key === nextColKey) {
       if (colIndex < maxColIndex) {
-        event.preventDefault();
         this.selectedCell = { rowIndex, colIndex: colIndex + 1 };
       }
     } else if (event.key === prevColKey) {
       if (colIndex > 0) {
-        event.preventDefault();
         this.selectedCell = { rowIndex, colIndex: colIndex - 1 };
       }
     } else if (event.key === 'ArrowDown') {
       if (rowIndex < maxRowIndex) {
-        event.preventDefault();
         this.selectedCell = { rowIndex: rowIndex + 1, colIndex };
       }
     } else if (event.key === 'ArrowUp') {
       if (rowIndex > 0) {
-        event.preventDefault();
         this.selectedCell = { rowIndex: rowIndex - 1, colIndex };
       }
     } else if (
@@ -1362,6 +1403,11 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     ) {
       this.copySelectedCell();
     }
+  }
+
+  selectRow(row: any): void {
+    this.selectedRow.set(row);
+    this.rowSelect.emit(row);
   }
 
   copyCellValue(
@@ -1381,12 +1427,24 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     });
   }
 
-  selectCell(rowIndex: number, colIndex: number): void {
+  selectCell(rowIndex: number, colIndex: number, event?: MouseEvent): void {
+    // Prevent document:click from instantly clearing selection when a cell is clicked
+    if (event) {
+      event.stopPropagation();
+    }
+
+    this.isFocused = true;
     this.selectedCell = { rowIndex, colIndex };
+
+    const rowToSelect = this.tableValue()[rowIndex];
+    if (rowToSelect) {
+      this.selectRow(rowToSelect);
+    }
   }
 
   isSelected(rowIndex: number, colIndex: number): boolean {
     return (
+      this.isFocused &&
       this.selectedCell?.rowIndex === rowIndex &&
       this.selectedCell?.colIndex === colIndex
     );
@@ -1422,5 +1480,15 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     const col = this.columns()[colIndex];
     if (!row || !col) return '';
     return String(row[col.field as keyof typeof row] ?? '');
+  }
+
+  // Detect clicks anywhere on the document
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const clickedInside = this.el.nativeElement.contains(event.target as Node);
+    if (!clickedInside) {
+      this.isFocused = false;
+      this.selectedCell = null; // Clears the selection state when clicking outside
+    }
   }
 }

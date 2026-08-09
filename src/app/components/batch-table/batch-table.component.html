@@ -239,6 +239,7 @@
           [class.row-new]="row._isNew"
           [appRowHighlight]="isDirty(row)"
           [pReorderableRow]="index"
+          [class.row-selected]="selectedRow() === row"
           [pSelectableRow]="row"
         >
           @if (allowReorder()) {
@@ -248,10 +249,9 @@
           }
           @for (item of columns; let colIndex = $index; track item.field) {
             <td
-              (click)="selectCell(rowIndex, colIndex)"
-              [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }"
+              (click)="selectCell(rowIndex, colIndex, $event)"
               [class.cell-selected]="isSelected(rowIndex, colIndex)"
-              tabindex="0"
+              tabindex="-1"
             >
               @if (isRowEditing(row)) {
                 @if (item.component && !item.hideInput) {
