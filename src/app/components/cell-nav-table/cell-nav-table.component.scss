@@ -1,18 +1,26 @@
-.cell-selected {
-  outline: 2px solid var(--p-primary-color, #007ad9) !important;
-  outline-offset: -2px;
-  background-color: var(--p-highlight-background, #e3f2fd) !important;
+/* Remove standard browser focus outlines causing the black border */
+:host {
+  outline: none;
 }
 
 td {
-  cursor: pointer;
+  outline: none !important;
   user-select: none;
-  -webkit-user-select: none;
+
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
 }
 
-.cell-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
+/* Custom visual selection styles */
+.cell-selected {
+  outline: 2px solid #3b82f6 !important; /* Custom focus ring color */
+  outline-offset: -2px;
+  background-color: rgba(59, 130, 246, 0.08);
+}
+
+.row-selected {
+  background-color: rgba(59, 130, 246, 0.15) !important;
 }

@@ -1,4 +1,11 @@
-import { Component, HostListener } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Output,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -17,8 +24,15 @@ interface CellCoordinates {
   providers: [MessageService],
   templateUrl: './cell-nav-table.component.html',
   styleUrls: ['./cell-nav-table.component.scss'],
+  host: {
+    tabindex: '0',
+    '(focusin)': 'onFocus()',
+    '(focusout)': 'onBlur($event)',
+  },
 })
 export class CellNavTableComponent {
+  @Output() rowSelect = new EventEmitter<any>();
+
   products = [
     {
       code: 'P100',
@@ -55,10 +69,37 @@ export class CellNavTableComponent {
 
   selectedCell: CellCoordinates | null = null;
 
-  constructor(private messageService: MessageService) {}
+  // Track focus for this table instance
+  isFocused = false;
+  dir: 'ltr' | 'rtl' = 'rtl'; // Default direction, can be set dynamically
 
-  selectCell(rowIndex: number, colIndex: number): void {
+  // Selected row tracking (adjust types to match your model)
+  selectedRow = signal<any | null>(null);
+
+  constructor(
+    private messageService: MessageService,
+    private el: ElementRef,
+  ) {}
+
+  onFocus(): void {
+    this.isFocused = true;
+  }
+
+  onBlur(event: FocusEvent): void {
+    // Only remove focus if the new focus target is outside this table component
+    if (!this.el.nativeElement.contains(event.relatedTarget as Node)) {
+      this.isFocused = false;
+    }
+  }
+
+  selectCell(rowIndex: number, colIndex: number, event?: MouseEvent): void {
+    this.isFocused = true;
     this.selectedCell = { rowIndex, colIndex };
+  }
+
+  selectRow(row: any): void {
+    this.selectedRow.set(row);
+    this.rowSelect.emit(row);
   }
 
   isSelected(rowIndex: number, colIndex: number): boolean {
@@ -75,39 +116,72 @@ export class CellNavTableComponent {
     return String(row[col.field as keyof typeof row] ?? '');
   }
 
-  @HostListener('window:keydown', ['$event'])
+  @HostListener('keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent): void {
     if (!this.selectedCell) return;
 
+    const target = event.target as HTMLElement;
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+
     const { rowIndex, colIndex } = this.selectedCell;
+    const maxRowIndex = this.products.length - 1;
+    const maxColIndex = this.columns.length - 1;
 
-    // Detect RTL direction from document root or body
     const isRtl =
+      this.dir === 'rtl' ||
       document.documentElement.dir === 'rtl' ||
-      document.body.dir === 'rtl' ||
-      getComputedStyle(document.body).direction === 'rtl';
+      document.body.dir === 'rtl';
 
-    // In RTL: ArrowLeft advances to next column, ArrowRight moves to previous column
     const nextColKey = isRtl ? 'ArrowLeft' : 'ArrowRight';
     const prevColKey = isRtl ? 'ArrowRight' : 'ArrowLeft';
 
-    if (event.key === nextColKey) {
+    const handledKeys = [
+      nextColKey,
+      prevColKey,
+      'ArrowDown',
+      'ArrowUp',
+      ' ',
+      'Space',
+    ];
+
+    // Check if the pressed key is handled by navigation
+    if (handledKeys.includes(event.key) || event.code === 'Space') {
+      // Stop the event from reaching window listeners on other tables
       event.preventDefault();
-      if (colIndex < this.columns.length - 1) {
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+
+    // 1. Space Key Row Selection
+    if (event.key === ' ' || event.code === 'Space') {
+      const rowToSelect = this.products[rowIndex];
+      if (rowToSelect) {
+        this.selectRow(rowToSelect);
+      }
+      return;
+    }
+
+    // 2. Navigation Logic
+    if (event.key === nextColKey) {
+      if (colIndex < maxColIndex) {
         this.selectedCell = { rowIndex, colIndex: colIndex + 1 };
       }
     } else if (event.key === prevColKey) {
-      event.preventDefault();
       if (colIndex > 0) {
         this.selectedCell = { rowIndex, colIndex: colIndex - 1 };
       }
     } else if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      if (rowIndex < this.products.length - 1) {
+      if (rowIndex < maxRowIndex) {
         this.selectedCell = { rowIndex: rowIndex + 1, colIndex };
       }
     } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
       if (rowIndex > 0) {
         this.selectedCell = { rowIndex: rowIndex - 1, colIndex };
       }
@@ -115,7 +189,7 @@ export class CellNavTableComponent {
       (event.ctrlKey || event.metaKey) &&
       event.key.toLowerCase() === 'c'
     ) {
-      this.copyCellValue(rowIndex, colIndex);
+      this.copyCellValue();
     }
   }
 

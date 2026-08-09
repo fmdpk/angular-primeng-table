@@ -18,7 +18,7 @@
   </div>
 
   <!-- PrimeNG Table -->
-  <p-table [value]="products" [columns]="columns" [dir]="'rtl'">
+  <p-table [dir]="dir" [value]="products" [columns]="columns" [dir]="'rtl'">
     <ng-template pTemplate="header" let-columns>
       <tr>
         @for (col of columns; track col.field) {
@@ -35,9 +35,10 @@
       <tr>
         @for (col of columns; let colIndex = $index; track col.field) {
           <td
-            [class.cell-selected]="isSelected(rowIndex, colIndex)"
             (click)="selectCell(rowIndex, colIndex)"
-            tabindex="0"
+            [class.cell-selected]="isSelected(rowIndex, colIndex)"
+            [class.row-selected]="selectedRow() === rowData"
+            tabindex="-1"
           >
             <div class="cell-content">
               <span>{{ rowData[col.field] }}</span>
