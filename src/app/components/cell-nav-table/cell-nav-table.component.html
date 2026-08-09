@@ -1,0 +1,62 @@
+<p-toast></p-toast>
+
+<div class="p-4">
+  <!-- Toolbar action -->
+  <div class="mb-3 flex align-items-center gap-3">
+    <p-button
+      label="Copy Selected Cell"
+      icon="pi pi-copy"
+      [disabled]="!selectedCell"
+      (onClick)="copyCellValue()"
+    />
+    @if (selectedCell) {
+      <span>
+        Selected Cell: Row {{ selectedCell.rowIndex + 1 }}, Col
+        {{ selectedCell.colIndex + 1 }}
+      </span>
+    }
+  </div>
+
+  <!-- PrimeNG Table -->
+  <p-table [value]="products" [columns]="columns" [dir]="'rtl'">
+    <ng-template pTemplate="header" let-columns>
+      <tr>
+        @for (col of columns; track col.field) {
+          <th>{{ col.header }}</th>
+        }
+      </tr>
+    </ng-template>
+    <ng-template
+      pTemplate="body"
+      let-rowData
+      let-columns="columns"
+      let-rowIndex="rowIndex"
+    >
+      <tr>
+        @for (col of columns; let colIndex = $index; track col.field) {
+          <td
+            [class.cell-selected]="isSelected(rowIndex, colIndex)"
+            (click)="selectCell(rowIndex, colIndex)"
+            tabindex="0"
+          >
+            <div class="cell-content">
+              <span>{{ rowData[col.field] }}</span>
+              <p-button
+                icon="pi pi-copy"
+                [rounded]="true"
+                [text]="true"
+                severity="secondary"
+                size="small"
+                (onClick)="
+                  selectCell(rowIndex, colIndex);
+                  copyCellValue(rowIndex, colIndex);
+                  $event.stopPropagation()
+                "
+              />
+            </div>
+          </td>
+        }
+      </tr>
+    </ng-template>
+  </p-table>
+</div>

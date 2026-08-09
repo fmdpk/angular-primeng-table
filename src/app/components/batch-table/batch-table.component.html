@@ -232,22 +232,26 @@
         pTemplate="body"
         let-row
         let-columns="columns"
-        let-index="rowIndex"
+        let-index="index"
+        let-rowIndex="rowIndex"
       >
         <tr
           [class.row-new]="row._isNew"
           [appRowHighlight]="isDirty(row)"
           [pReorderableRow]="index"
           [pSelectableRow]="row"
-          (keydown)="onCellKeydown($event, row, index)"
         >
           @if (allowReorder()) {
             <td>
               <span class="pi pi-bars" pReorderableRowHandle></span>
             </td>
           }
-          @for (item of columns; track item.field) {
-            <td [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }">
+          @for (item of columns; let colIndex = $index; track item.field) {
+            <td
+              (click)="selectCell(rowIndex, colIndex)"
+              [ngClass]="{ 'cell-dirty': isCellDirty(row, item.field) }"
+              [class.cell-selected]="isSelected(rowIndex, colIndex)"
+            >
               @if (isRowEditing(row)) {
                 @if (item.component && !item.hideInput) {
                   <app-lazy-cell-loader

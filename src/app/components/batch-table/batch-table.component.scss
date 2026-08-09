@@ -132,3 +132,22 @@
   height: 24px;
   margin-top: 4px;
 }
+
+.cell-selected {
+  outline: 2px solid var(--p-primary-color, #007ad9) !important;
+  outline-offset: -2px;
+  background-color: var(--p-highlight-background, #e3f2fd) !important;
+}
+
+td {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cell-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}

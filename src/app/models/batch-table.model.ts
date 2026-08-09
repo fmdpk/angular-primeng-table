@@ -39,3 +39,8 @@ export interface BatchCellEditEvent<T = any> {
   field: string;
   value: unknown;
 }
+
+export interface CellCoordinates {
+  rowIndex: number;
+  colIndex: number;
+}

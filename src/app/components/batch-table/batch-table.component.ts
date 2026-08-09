@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  HostListener,
   inject,
   input,
   OnDestroy,
@@ -36,6 +37,7 @@ import {
   BatchCellEditEvent,
   BatchSaveEvent,
   BatchTableItem,
+  CellCoordinates,
   TableColumnDefinition,
   ValidatorFn,
 } from '../../models/batch-table.model';
@@ -160,6 +162,7 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     first: number;
     rows: number;
   } | null>(null);
+  selectedCell: CellCoordinates | null = null;
   private originalOnColumnResizeEnd?: (...args: unknown[]) => void;
   private readonly platformId = inject(PLATFORM_ID);
   readonly isBrowser = isPlatformBrowser(this.platformId);
@@ -977,42 +980,42 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   }
 
   // ---------- Arrow key navigation ----------
-  onEditArrowKey(event: KeyboardEvent): void {
-    const isRtl = this.dir() === 'rtl';
-    if (!isRtl) return;
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  // onEditArrowKey(event: KeyboardEvent): void {
+  //   const isRtl = this.dir() === 'rtl';
+  //   if (!isRtl) return;
+  //   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
 
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
+  //   event.preventDefault();
+  //   event.stopPropagation();
+  //   event.stopImmediatePropagation();
 
-    const currentTd = (event.target as HTMLElement).closest('td');
-    if (!currentTd) return;
-    const row = currentTd.parentElement as HTMLTableRowElement;
-    if (!row) return;
+  //   const currentTd = (event.target as HTMLElement).closest('td');
+  //   if (!currentTd) return;
+  //   const row = currentTd.parentElement as HTMLTableRowElement;
+  //   if (!row) return;
 
-    const editableCells = Array.from(
-      row.querySelectorAll(
-        'td[pEditableColumn], td[ng-reflect-p-editable-column]',
-      ),
-    ) as HTMLElement[];
-    const cells =
-      editableCells.length > 0
-        ? editableCells
-        : (Array.from(row.querySelectorAll('td')).slice(
-            0,
-            -1,
-          ) as HTMLElement[]);
-    const currentIndex = cells.indexOf(currentTd as HTMLElement);
-    if (currentIndex === -1) return;
+  //   const editableCells = Array.from(
+  //     row.querySelectorAll(
+  //       'td[pEditableColumn], td[ng-reflect-p-editable-column]',
+  //     ),
+  //   ) as HTMLElement[];
+  //   const cells =
+  //     editableCells.length > 0
+  //       ? editableCells
+  //       : (Array.from(row.querySelectorAll('td')).slice(
+  //           0,
+  //           -1,
+  //         ) as HTMLElement[]);
+  //   const currentIndex = cells.indexOf(currentTd as HTMLElement);
+  //   if (currentIndex === -1) return;
 
-    const targetIndex =
-      event.key === 'ArrowRight' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= cells.length) return;
+  //   const targetIndex =
+  //     event.key === 'ArrowRight' ? currentIndex - 1 : currentIndex + 1;
+  //   if (targetIndex < 0 || targetIndex >= cells.length) return;
 
-    (event.target as HTMLElement).blur();
-    cells[targetIndex].click();
-  }
+  //   (event.target as HTMLElement).blur();
+  //   cells[targetIndex].click();
+  // }
 
   // ---------- Sort / page restore ----------
   private hasFilterChanged(
@@ -1303,144 +1306,82 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     this.selectedRow.set(null);
   }
 
-  // ---------- Arrow key navigation ----------
-  onCellKeydown(event: Event, row: BatchTableItem<T>, rowIndex: number): void {
-    const e = event as KeyboardEvent;
-    const isRtl = this.dir() === 'rtl';
-    const target = e.target as HTMLElement;
+  @HostListener('window:keydown', ['$event'])
+  handleKeyDown(event: KeyboardEvent): void {
+    if (!this.selectedCell) return;
 
-    // Ignore if user is holding modifier keys (like Ctrl+C)
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const { rowIndex, colIndex } = this.selectedCell;
 
-    // Find the closest TD if we are inside a cell, otherwise it's null (View Mode row focus)
-    const currentTd = target.closest('td');
+    // Detect RTL direction from document root or body
+    const isRtl =
+      document.documentElement.dir === 'rtl' ||
+      document.body.dir === 'rtl' ||
+      getComputedStyle(document.body).direction === 'rtl';
 
-    // 1. Handle Up / Down Navigation
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      e.stopPropagation();
+    // In RTL: ArrowLeft advances to next column, ArrowRight moves to previous column
+    const nextColKey = isRtl ? 'ArrowLeft' : 'ArrowRight';
+    const prevColKey = isRtl ? 'ArrowRight' : 'ArrowLeft';
 
-      const currentTr = (
-        currentTd ? currentTd.parentElement : target.closest('tr')
-      ) as HTMLTableRowElement;
-      if (!currentTr) return;
-
-      const targetTr =
-        e.key === 'ArrowDown'
-          ? currentTr.nextElementSibling
-          : currentTr.previousElementSibling;
-
-      if (!(targetTr instanceof HTMLTableRowElement)) return;
-
-      const rows = this.tableValue();
-      const targetRowIndex =
-        e.key === 'ArrowDown' ? rowIndex + 1 : rowIndex - 1;
-
-      if (targetRowIndex < 0 || targetRowIndex >= rows.length) return;
-
-      const targetRow = rows[targetRowIndex];
-      this.selectedRow.set(targetRow); // Update PrimeNG selection
-
-      const isCurrentlyEditing = this.isRowEditing(row);
-
-      // If we are editing, ensure the target row enters edit mode too
-      if (isCurrentlyEditing && !this.isRowEditing(targetRow)) {
-        this.startRowEdit(targetRow);
+    if (event.key === nextColKey) {
+      event.preventDefault();
+      if (colIndex < this.columns.length - 1) {
+        this.selectedCell = { rowIndex, colIndex: colIndex + 1 };
       }
-
-      // Find current column index
-      let colIndex = 0;
-      if (currentTd) {
-        colIndex = Array.from(currentTr.children).indexOf(currentTd);
+    } else if (event.key === prevColKey) {
+      event.preventDefault();
+      if (colIndex > 0) {
+        this.selectedCell = { rowIndex, colIndex: colIndex - 1 };
       }
-
-      this.focusCell(targetTr, colIndex, isCurrentlyEditing);
-      return;
-    }
-
-    // 2. Handle Left / Right Navigation (RTL aware)
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      // If no specific cell is targeted (View Mode), ignore Left/Right
-      if (!currentTd) return;
-
-      const isNext = isRtl ? e.key === 'ArrowLeft' : e.key === 'ArrowRight';
-
-      // Prevent skipping if user is just moving text cursor inside an input
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement
-      ) {
-        const cursorPos = target.selectionStart;
-        const valueLen = target.value.length;
-        if (isNext && cursorPos !== null && cursorPos < valueLen) return;
-        if (!isNext && cursorPos !== null && cursorPos > 0) return;
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (rowIndex < this.tableValue().length - 1) {
+        this.selectedCell = { rowIndex: rowIndex + 1, colIndex };
       }
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const rowEl = currentTd.parentElement as HTMLTableRowElement;
-      if (!rowEl) return;
-
-      const allCells = Array.from(rowEl.querySelectorAll('td'));
-      const startIndex = this.allowReorder() ? 1 : 0;
-      // Exclude the first cell (reorder icon) and the last cell (actions menu)
-      const cells = allCells.slice(
-        startIndex,
-        allCells.length - 1,
-      ) as HTMLElement[];
-
-      const currentIndex = cells.indexOf(currentTd);
-      if (currentIndex === -1) return;
-
-      const targetIndex = isNext ? currentIndex + 1 : currentIndex - 1;
-      if (targetIndex < 0 || targetIndex >= cells.length) return;
-
-      const absoluteIndex = targetIndex + startIndex;
-      const isCurrentlyEditing = this.isRowEditing(row);
-      this.focusCell(rowEl, absoluteIndex, isCurrentlyEditing);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (rowIndex > 0) {
+        this.selectedCell = { rowIndex: rowIndex - 1, colIndex };
+      }
+    } else if (
+      (event.ctrlKey || event.metaKey) &&
+      event.key.toLowerCase() === 'c'
+    ) {
+      this.copyCellValue(rowIndex, colIndex);
     }
   }
 
-  /**
-   * Helper to focus an input inside a specific cell.
-   * Uses a retry mechanism because lazy-loaded components take a moment to render.
-   */
-  private focusCell(
-    rowEl: HTMLTableRowElement,
-    colIndex: number,
-    isEditing: boolean,
-    attempt = 0,
-  ) {
-    setTimeout(() => {
-      if (isEditing) {
-        const targetTd = rowEl.children[colIndex] as HTMLElement;
-        if (!targetTd) {
-          rowEl.focus(); // Fallback
-          return;
-        }
+  copyCellValue(
+    rowIndex: number = this.selectedCell?.rowIndex ?? -1,
+    colIndex: number = this.selectedCell?.colIndex ?? -1,
+  ): void {
+    if (rowIndex < 0 || colIndex < 0) return;
 
-        // Look for standard inputs or PrimeNG component wrappers
-        const focusable = targetTd.querySelector(
-          'input, textarea, select, .p-select, .p-autocomplete, [tabindex]:not([tabindex="-1"])',
-        ) as HTMLElement | null;
+    const value = this.getCellValue(rowIndex, colIndex);
+    navigator.clipboard.writeText(value).then(() => {
+      this.messageService.add({
+        severity: 'info',
+        summary: 'Copied',
+        detail: `Copied "${value}" to clipboard`,
+        life: 2000,
+      });
+    });
+  }
 
-        if (focusable) {
-          focusable.focus();
-          if (focusable instanceof HTMLInputElement) {
-            focusable.select(); // Select text for easy overwriting
-          }
-        } else if (attempt < 10) {
-          // If not found, try again (waits for Angular to render lazy component)
-          this.focusCell(rowEl, colIndex, isEditing, attempt + 1);
-        } else {
-          targetTd.setAttribute('tabindex', '0');
-          targetTd.focus();
-        }
-      } else {
-        // In View Mode, just focus the row itself to move the selection box
-        rowEl.focus();
-      }
-    }, 50);
+  selectCell(rowIndex: number, colIndex: number): void {
+    this.selectedCell = { rowIndex, colIndex };
+  }
+
+  isSelected(rowIndex: number, colIndex: number): boolean {
+    return (
+      this.selectedCell?.rowIndex === rowIndex &&
+      this.selectedCell?.colIndex === colIndex
+    );
+  }
+
+  getCellValue(rowIndex: number, colIndex: number): string {
+    const row = this.tableValue()[rowIndex];
+    const col = this.columns()[colIndex];
+    if (!row || !col) return '';
+    return String(row[col.field as keyof typeof row] ?? '');
   }
 }
