@@ -95,6 +95,12 @@ export class CellNavTableComponent {
   selectCell(rowIndex: number, colIndex: number, event?: MouseEvent): void {
     this.isFocused = true;
     this.selectedCell = { rowIndex, colIndex };
+
+    // Automatically select/highlight the row of the clicked cell
+    const rowToSelect = this.products[rowIndex];
+    if (rowToSelect) {
+      this.selectRow(rowToSelect);
+    }
   }
 
   selectRow(row: any): void {

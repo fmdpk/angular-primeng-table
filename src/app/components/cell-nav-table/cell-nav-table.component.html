@@ -32,7 +32,7 @@
       let-columns="columns"
       let-rowIndex="rowIndex"
     >
-      <tr>
+      <tr [class.row-selected]="selectedRow() === rowData">
         @for (col of columns; let colIndex = $index; track col.field) {
           <td
             (click)="selectCell(rowIndex, colIndex)"
