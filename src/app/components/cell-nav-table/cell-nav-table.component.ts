@@ -131,6 +131,7 @@ export class CellNavTableComponent {
   }
 
   getCellValue(rowIndex: number, colIndex: number): string {
+    console.log(this.products);
     const row = this.products[rowIndex];
     const col = this.columns[colIndex];
     if (!row || !col) return '';

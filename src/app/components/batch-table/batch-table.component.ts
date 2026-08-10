@@ -1410,23 +1410,6 @@ export class BatchTableComponent<T extends Record<string, any> = any>
     this.rowSelect.emit(row);
   }
 
-  copyCellValue(
-    rowIndex: number = this.selectedCell?.rowIndex ?? -1,
-    colIndex: number = this.selectedCell?.colIndex ?? -1,
-  ): void {
-    if (rowIndex < 0 || colIndex < 0) return;
-
-    const value = this.getCellValue(rowIndex, colIndex);
-    navigator.clipboard.writeText(value).then(() => {
-      this.messageService.add({
-        severity: 'info',
-        summary: 'Copied',
-        detail: `Copied "${value}" to clipboard`,
-        life: 2000,
-      });
-    });
-  }
-
   selectCell(rowIndex: number, colIndex: number, event?: MouseEvent): void {
     // Prevent document:click from instantly clearing selection when a cell is clicked
     if (event) {
@@ -1451,35 +1434,32 @@ export class BatchTableComponent<T extends Record<string, any> = any>
   }
 
   copySelectedCell(): void {
-    if (!this.selectedCell) return;
-    const { rowIndex, colIndex } = this.selectedCell;
-    const row = this.tableValue()[rowIndex];
-    const col = this.selectedColumns()[colIndex];
-
-    if (!row || !col) return;
-
-    const rawValue = row[col.field];
-    const formattedValue = col.convertCellOutput
-      ? col.convertCellOutput(rawValue ?? this.date)
-      : rawValue;
-
-    if (formattedValue !== undefined && formattedValue !== null) {
-      navigator.clipboard.writeText(String(formattedValue)).then(() => {
+    const rawValue = this.getCellValue();
+    if (rawValue !== undefined && rawValue !== null) {
+      navigator.clipboard.writeText(String(rawValue)).then(() => {
         this.messageService.add({
           severity: 'info',
           summary: 'کپی شد',
-          detail: `مقدار "${formattedValue}" کپی شد`,
+          detail: `مقدار "${rawValue}" کپی شد`,
           life: 2000,
         });
       });
     }
   }
 
-  getCellValue(rowIndex: number, colIndex: number): string {
+  getCellValue(): string {
+    if (!this.selectedCell) return '';
+    const { rowIndex, colIndex } = this.selectedCell;
     const row = this.tableValue()[rowIndex];
-    const col = this.columns()[colIndex];
+    const col = this.selectedColumns()[colIndex];
+
     if (!row || !col) return '';
-    return String(row[col.field as keyof typeof row] ?? '');
+    const rawValue = row[col.field];
+    // const formattedValue = col.convertCellOutput
+    //   ? col.convertCellOutput(rawValue ?? this.date)
+    //   : rawValue;
+
+    return String(rawValue);
   }
 
   // Detect clicks anywhere on the document
