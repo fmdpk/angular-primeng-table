@@ -161,11 +161,11 @@ td {
   outline: none !important;
   user-select: none;
 
-  &:focus,
-  &:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-  }
+  // &:focus,
+  // &:focus-visible {
+  //   outline: none !important;
+  //   box-shadow: none !important;
+  // }
 }
 
 .row-selected {

@@ -7,11 +7,11 @@ td {
   outline: none !important;
   user-select: none;
 
-  &:focus,
-  &:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-  }
+  // &:focus,
+  // &:focus-visible {
+  //   outline: none !important;
+  //   box-shadow: none !important;
+  // }
 }
 
 tr.row-selected {
@@ -19,7 +19,7 @@ tr.row-selected {
 
   /* Ensure PrimeNG table cells don't override row background */
   > td {
-    background-color: transparent !important;
+    // background-color: transparent !important;
   }
 }
 
@@ -27,7 +27,9 @@ tr.row-selected {
 .cell-selected {
   outline: 2px solid #3b82f6 !important; /* Custom focus ring color */
   outline-offset: -2px;
-  background-color: rgb(59 130 246 / 33%) !important; /* Custom background color for selected cell */
+  background-color: rgb(
+    59 130 246 / 33%
+  ) !important; /* Custom background color for selected cell */
 }
 
 .row-selected {
