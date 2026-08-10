@@ -151,7 +151,7 @@
       <ng-template pTemplate="header" let-columns>
         <tr>
           @if (allowReorder()) {
-            <th style="width: 46px"></th>
+            <th pResizableColumn style="width: 46px"></th>
           }
           @for (item of columns; track item.field) {
             <th

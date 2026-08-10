@@ -61,7 +61,7 @@
             <p-button
               label="تایید"
               icon="pi pi-check"
-              (onClick)="confirmSelection()"
+              (onClick)="confirmSelection(op)"
               [disabled]="!selectedDialogRow()"
             />
             <p-button
@@ -69,7 +69,7 @@
               icon="pi pi-times"
               severity="secondary"
               [outlined]="true"
-              (onClick)="isDialogVisible.set(false)"
+              (onClick)="isDialogVisible.set(false); op.hide()"
             />
           </div>
         </td>

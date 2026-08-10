@@ -187,11 +187,11 @@ export class ProductsTableComponent implements OnInit {
           ) as TableColumnDefinition<TableItem>[];
 
         // 2. Append any new columns that were added to the code but aren't in localStorage yet
-        allColumns.forEach((col) => {
-          if (!reconstructedColumns.find((c) => c.field === col.field)) {
-            reconstructedColumns.push(col);
-          }
-        });
+        // allColumns.forEach((col) => {
+        //   if (!reconstructedColumns.find((c) => c.field === col.field)) {
+        //     reconstructedColumns.push(col);
+        //   }
+        // });
 
         this.initialSelectedColumns.set(reconstructedColumns);
       } catch (e) {

@@ -5,7 +5,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { TableModule } from 'primeng/table';
-import { PopoverModule } from 'primeng/popover';
+import { Popover, PopoverModule } from 'primeng/popover';
 
 @Component({
   selector: 'app-code-input-cell-overlay',
@@ -47,13 +47,14 @@ export class CodeInputCellOverlayComponent {
     this.isDialogVisible.set(true);
   }
 
-  confirmSelection() {
+  confirmSelection(op: Popover) {
     const selected = this.selectedDialogRow();
     if (selected) {
       this.row[this.column.field] = selected.code;
       this.table.markFieldTouched(this.row, this.column.field);
     }
     this.isDialogVisible.set(false);
+    op.hide();
   }
 
   filteredProducts = computed(() => {
